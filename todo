@@ -1,5 +1,4 @@
 - On Join
-  - Start 24 hour timer till user kickout if not registered
   - Send DM with memo
   - Check if active profile count <300
     - Send Name and SRM Mail Prompt
@@ -11,9 +10,6 @@
       - configs
       - rotate keys
       -
-
-  - Post Transaction Verification set user as registered
-  - Stop auto kick since registered
 
 
 -- Rate Limit User Join ( Raid Prevention )
