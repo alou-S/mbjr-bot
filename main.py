@@ -7,6 +7,7 @@ from discord.ext import commands
 
 import config
 import messages
+from otpmail import send_otp
 
 # 1256347035184140349 : Unverified
 # 1256347101189640305 : Verified
@@ -18,8 +19,8 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-mongo_client = MongoClient(config.mongo_client)
-db = mongo_client[config.mongo_db]
+mongo_client = MongoClient(config.MONGO_CLIENT)
+db = mongo_client[config.MONGO_DB_NAME]
 member_col = db["memberInfo"]
 
 
@@ -116,13 +117,14 @@ async def verify_member(ctx):
 
         otp = str(random.randint(100000, 999999))
 
-        print(otp)
+        response = send_otp(otp, netid)
 
         member_col.update_one(
             {"_id": ctx.author.id},
             {'$inc': {"verify_fail_count": 1}}
         )
-        print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid}.")
+
+        print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid} with response {response.text} ({response.status_code}).")
         await ctx.send(f"An OTP has been sent to your email associated with {netid}. Please send the 6-digit OTP:")
         otp_msg = await bot.wait_for('message', check=check, timeout=300.0)
 
@@ -151,7 +153,7 @@ async def verify_member(ctx):
                     }
                 }
             )
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified.")
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified. ")
             await ctx.send("Verification successful! Your account has been verified.")
             return
             
@@ -245,4 +247,4 @@ async def help_cmd(ctx):
         log_invalid_command(ctx)
 
 
-bot.run(config.token)
+bot.run(config.DISCORD_BOT_TOKEN)
