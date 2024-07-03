@@ -7,10 +7,12 @@
     {if OTP verified}
   - Create Channel with UserID
     Commands:-
+      - subscribe
       - configs
       - rotate keys
       -
 
+- Primary and Child NetID's
 
 -- Rate Limit User Join ( Raid Prevention )
 

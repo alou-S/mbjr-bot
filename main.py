@@ -7,6 +7,7 @@ from discord.ext import commands
 
 import config
 import messages
+from base36 import *
 from otpmail import send_otp
 
 # 1256347035184140349 : Unverified
@@ -107,25 +108,24 @@ async def verify_member(ctx):
 
         # Validate NetID format
         if not re.match(r'^[a-z]{2}\d{4}$', netid):
-            await ctx.send("Invalid NetID format. Please try again with the correct format.")
+            await ctx.send("Invalid NetID. Please try again.")
             return
-
-        if member_col.find_one({"netid": netid}):
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
-            await ctx.send("This NetID has been already used. Please try again with a valid NetID.")
-            return
-
-        otp = str(random.randint(100000, 999999))
-
-        response = send_otp(otp, netid)
 
         member_col.update_one(
             {"_id": ctx.author.id},
             {'$inc': {"verify_fail_count": 1}}
         )
 
+        if member_col.find_one({"netid": netid}):
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
+            await ctx.send("Invalid NetID. Please try again.")
+            return
+
+        otp = str(random.randint(100000, 999999))
+        response = send_otp(otp, netid)
+
         print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid} with response {response.text} ({response.status_code}).")
-        await ctx.send(f"An OTP has been sent to your email associated with {netid}. Please send the 6-digit OTP:")
+        await ctx.send(f"An OTP has been sent to the email associated with {netid}. Please send the 6-digit OTP")
         otp_msg = await bot.wait_for('message', check=check, timeout=300.0)
 
         if otp_msg.content == otp:
@@ -153,8 +153,18 @@ async def verify_member(ctx):
                     }
                 }
             )
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified. ")
-            await ctx.send("Verification successful! Your account has been verified.")
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified.")
+
+            category = discord.utils.get(guild.categories, name="Subscriptions")
+            overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                member: discord.PermissionOverwrite(read_messages=True)}
+            channel_name = to_base36(member.id)
+            channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+
+            channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
+
+            await ctx.send(f"Verification successful! NetID {netid} has been bound to your account as primary NetID.")
+            await ctx.send(f"Click on the following channel to continue : {channel_link}")
             return
             
         else:
