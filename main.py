@@ -88,10 +88,10 @@ def db_member_verity():
             )
 
 
-# TODO: ADD LOGGING TO THIS FUCKIN FUNTION
 async def verify_member(ctx):
     member_doc = member_col.find_one({"_id": ctx.author.id})
     if member_doc.get("verify_fail_count", 0) > 2:
+        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
         await ctx.send("You have failed to verify too many times. Please contact admin.")
         return
     
@@ -110,6 +110,7 @@ async def verify_member(ctx):
             return
 
         if member_col.find_one({"netid": netid}):
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
             await ctx.send("This NetID has been already used. Please try again with a valid NetID.")
             return
 
@@ -121,7 +122,7 @@ async def verify_member(ctx):
             {"_id": ctx.author.id},
             {'$inc': {"verify_fail_count": 1}}
         )
-
+        print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid}.")
         await ctx.send(f"An OTP has been sent to your email associated with {netid}. Please send the 6-digit OTP:")
         otp_msg = await bot.wait_for('message', check=check, timeout=300.0)
 
@@ -150,15 +151,18 @@ async def verify_member(ctx):
                     }
                 }
             )
-
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified.")
             await ctx.send("Verification successful! Your account has been verified.")
             return
             
         else:
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
             await ctx.send("Incorrect OTP. Verification failed. Please try again.")
             return
 
     except asyncio.TimeoutError:
+        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification timeout.")
+        print(f"{log_time()} : ")
         await ctx.send("Verification timed out. Please try again.")
 
 
