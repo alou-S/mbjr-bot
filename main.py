@@ -4,6 +4,7 @@ import random
 import re
 from pymongo import MongoClient
 from discord.ext import commands
+from functools import wraps
 
 import config
 import messages
@@ -188,6 +189,46 @@ async def verify_member(ctx):
             await ctx.send(f"Account verification successful! The above NetID has been bound to your account as primary NetID.")
             await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
+
+def admin_channel_command():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(ctx, *args, **kwargs):
+            if ctx.guild and ctx.channel.name == 'bot-admin-cmds':
+                return await func(ctx, *args, **kwargs)
+            else:
+                log_invalid_command(ctx)
+                return
+        return wrapper
+    return decorator
+
+
+def dm_command():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(ctx, *args, **kwargs):
+            if isinstance(ctx.channel, discord.DMChannel):
+                return await func(ctx, *args, **kwargs)
+            else:
+                log_invalid_command(ctx)
+                return
+        return wrapper
+    return decorator
+
+
+def sub_channel_command():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(ctx, *args, **kwargs):
+            if ctx.guild and ctx.channel.category and ctx.channel.category.name == 'Subscriptions':
+                return await func(ctx, *args, **kwargs)
+            else:
+                log_invalid_command(ctx)
+                return
+        return wrapper
+    return decorator
+
+
 @bot.event
 async def on_member_join(member):
     print(f"{log_time()} : {member.name} with id {member.id} joined")
@@ -228,26 +269,23 @@ async def on_ready():
 
 
 @bot.command(name='verify')
+@dm_command()
 async def verify_member_cmd(ctx):
-    if isinstance(ctx.channel, discord.DMChannel):
-        member_doc = member_col.find_one({"_id": ctx.author.id})
-        if "is_verified" not in member_doc or member_doc["is_verified"] == False:
-            await verify_member(ctx)
-        else:
-            await ctx.send("You are already verified.")
+    member_doc = member_col.find_one({"_id": ctx.author.id})
+    if "is_verified" not in member_doc or member_doc["is_verified"] == False:
+        await verify_member(ctx)
     else:
-        log_invalid_command(ctx)
-
+        await ctx.send("You are already verified.")
 
 
 @bot.command(name='db-member-verity')
+@admin_channel_command()
 async def db_member_verity_cmd(ctx):
-    if ctx.guild and ctx.channel.name == 'bot-admin-cmds':
-        db_member_verity()
-        await ctx.send("DB Member Verity check triggered")
-    else:
-        log_invalid_command(ctx)
+    db_member_verity()
+    await ctx.send("DB Member Verity check triggered")
 
+
+# TODO: Write the help messages
 bot.remove_command('help')
 @bot.command(name='help')
 async def help_cmd(ctx):
@@ -255,7 +293,7 @@ async def help_cmd(ctx):
         embed = discord.Embed(title="Admin Commands", description=messages.admin_cmds, color=discord.Color.red())
         await ctx.send(embed=embed)
 
-    elif ctx.guild and ctx.channel.category and ctx.channel.category.name == 'subscription':
+    elif ctx.guild and ctx.channel.category and ctx.channel.category.name == 'Subscriptions':
         embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
         await ctx.send(embed=embed)
 
