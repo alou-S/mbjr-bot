@@ -90,12 +90,12 @@ def db_member_verity():
             )
 
 
-async def verify_member(ctx):
+async def  verify_email(ctx):
     member_doc = member_col.find_one({"_id": ctx.author.id})
     if member_doc.get("verify_fail_count", 0) > 2:
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
         await ctx.send("You have failed to verify too many times. Please contact admin.")
-        return
+        return False
     
     await ctx.send("Please send your SRM Net ID")
 
@@ -109,7 +109,7 @@ async def verify_member(ctx):
         # Validate NetID format
         if not re.match(r'^[a-z]{2}\d{4}$', netid):
             await ctx.send("Invalid NetID. Please try again.")
-            return
+            return False
 
         member_col.update_one(
             {"_id": ctx.author.id},
@@ -119,7 +119,7 @@ async def verify_member(ctx):
         if member_col.find_one({"netid": netid}):
             print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
             await ctx.send("Invalid NetID. Please try again.")
-            return
+            return False
 
         otp = str(random.randint(100000, 999999))
         response = send_otp(otp, netid)
@@ -129,14 +129,6 @@ async def verify_member(ctx):
         otp_msg = await bot.wait_for('message', check=check, timeout=300.0)
 
         if otp_msg.content == otp:
-            guild = bot.guilds[0]
-            unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
-            verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
-            member = guild.get_member(ctx.author.id)
-
-            await member.remove_roles(unverified_role)
-            await member.add_roles(verified_role)
-
             member_col.update_one(
                 {"_id": ctx.author.id},
                 {'$set': {"verify_fail_count": 0}}
@@ -147,13 +139,43 @@ async def verify_member(ctx):
                 {
                     "$push": {
                         "netid": netid
-                    },
+                    }
+                }
+            )
+
+            print(f"{log_time()} : NetID {netid} verified with Member {ctx.author.name} {ctx.author.id}.")
+            await ctx.send(f"OTP has been verified for NetID {netid}")
+            return True
+        else:
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
+            await ctx.send("Incorrect OTP. Verification failed. Please try again.")
+            return False
+    
+    except asyncio.TimeoutError:
+        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification timeout.")
+        print(f"{log_time()} : ")
+        await ctx.send("Verification timed out. Please try again.")
+        return False
+
+
+async def verify_member(ctx):
+        if await verify_email(ctx) == True:
+            guild = bot.guilds[0]
+            unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
+            verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
+            member = guild.get_member(ctx.author.id)
+
+            await member.remove_roles(unverified_role)
+            await member.add_roles(verified_role)
+
+            member_col.update_one(
+                {"_id": ctx.author.id},
+                {
                     "$set": {
                         "is_verified": True
                     }
                 }
             )
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verified.")
 
             category = discord.utils.get(guild.categories, name="Subscriptions")
             overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -163,20 +185,8 @@ async def verify_member(ctx):
 
             channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
 
-            await ctx.send(f"Verification successful! NetID {netid} has been bound to your account as primary NetID.")
+            await ctx.send(f"Account verification successful! The above NetID has been bound to your account as primary NetID.")
             await ctx.send(f"Click on the following channel to continue : {channel_link}")
-            return
-            
-        else:
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
-            await ctx.send("Incorrect OTP. Verification failed. Please try again.")
-            return
-
-    except asyncio.TimeoutError:
-        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification timeout.")
-        print(f"{log_time()} : ")
-        await ctx.send("Verification timed out. Please try again.")
-
 
 @bot.event
 async def on_member_join(member):
