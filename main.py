@@ -2,6 +2,7 @@ import time
 import discord
 import random
 import re
+import asyncio
 from pymongo import MongoClient
 from discord.ext import commands
 from functools import wraps
@@ -24,7 +25,8 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 mongo_client = MongoClient(config.MONGO_CLIENT)
 db = mongo_client[config.MONGO_DB_NAME]
 member_col = db["memberInfo"]
-
+trans_col = db["transactionInfo"]
+subs_col = db["subscriptionInfo"]
 
 def log_time():
     return time.strftime("%b %d %H:%M:%S")
@@ -98,7 +100,7 @@ async def  verify_email(ctx):
         await ctx.send("You have failed to verify too many times. Please contact admin.")
         return False
     
-    await ctx.send("Please send your SRM Net ID")
+    await ctx.send("Please send SRM Net ID")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
@@ -284,6 +286,98 @@ async def db_member_verity_cmd(ctx):
     db_member_verity()
     await ctx.send("DB Member Verity check triggered")
 
+@bot.command(name='add-netid')
+@sub_channel_command()
+async def add_netid_command(ctx):
+    verify_email(ctx)
+
+@bot.command(name='subscribe')
+@sub_channel_command()
+async def subscribe(ctx):
+    netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
+    unsub_netid = []
+
+    for netid in netid_list:
+        sub_doc = subs_col.find_one({'_id': netid})
+        if sub_doc is None:
+            unsub_netid.append(netid)
+        elif sub_doc.get('is_subscribed', False) == False:
+            unsub_netid.append(netid)
+
+    message = "**Select which netid to activate __(Reply with number)__:\n**"
+
+    for index, netid in enumerate(unsub_netid, start=1):
+        message += f"{index}. {netid}\n"
+
+    await ctx.send(message)
+
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+
+    try:
+        reply = await bot.wait_for('message', check=check, timeout=30.0)
+        netid_index = int(reply.content)
+
+        if not 1 <= netid_index <= len(unsub_netid):
+            await ctx.send("Invalid netid index. Please try again")
+            return
+
+        netid = unsub_netid[netid_index-1]
+
+        embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
+        await ctx.send(embed=embed)
+        await ctx.send("Please enter UTR (UPI Transaction No). of your payment:")
+
+        reply = await bot.wait_for('message', check=check, timeout=120.0)
+        utr = int(reply.content)
+
+        if len(str(utr)) != 12:
+            await ctx.send("Invalid UTR (Should be 12 digits). Please try again.")
+            return
+
+        trans_doc = trans_col.find_one({'UTR': utr})
+
+        if trans_doc == None:
+            await ctx.send("Transaction not found. Please try again")
+            return
+        elif trans_doc.get('is_claimed', False) == True:
+            await ctx.send("Duplicate UTR ID. What are you trying bro?")
+            return
+
+        trans_col.update_one(
+            {'UTR': utr},
+            {
+                "$set": {
+                    "is_claimed": True
+                }
+            },
+        )
+
+        subs_col.update_one(
+            {"_id": netid},
+            {'$inc': {"sub_cycle": 1}},         
+            upsert=True
+        )
+
+        cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
+                    "is_subscribed": True
+                }       
+            }
+        )
+
+        await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
+        await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
+        await ctx.send ("Use `!get-config` to get the Wireguard Configs")
+
+    except asyncio.TimeoutError:
+        await ctx.send("Timed out waiting for reply. Please try again.")
+        return  
 
 # TODO: Write the help messages
 bot.remove_command('help')
