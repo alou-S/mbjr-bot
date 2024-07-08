@@ -93,7 +93,12 @@ def db_member_verity():
             )
 
 
-async def  verify_email(ctx):
+async def verify_email(ctx):
+
+    if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
+        ctx.send("We are currently at max subscriptions! No new verificaitons can be taken.\nSorry for the inconvienice.")
+        return
+
     member_doc = member_col.find_one({"_id": ctx.author.id})
     if member_doc.get("verify_fail_count", 0) > 2:
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
@@ -294,6 +299,10 @@ async def add_netid_command(ctx):
 @bot.command(name='subscribe')
 @sub_channel_command()
 async def subscribe(ctx):
+    if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
+        ctx.send("We are currently at max subscriptions! No new subscription can be taken.\nSorry for the inconvienice.")
+        return
+
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
     unsub_netid = []
 
