@@ -359,6 +359,13 @@ async def subscribe_cmd(ctx):
         elif trans_doc.get('is_claimed', False) == True:
             await ctx.send("Duplicate UTR ID. What are you trying bro?")
             return
+        elif trans_doc.get('Amount') < 80:
+            await ctx.send("You payed less than 80 rupees. Please try again")
+            await ctx.send("Please contact admin to refund the transaction.")
+            return
+        elif trans_doc.get('Amount') > 80:
+            await ctx.send("You payed more than 80 rupees.")
+            await ctx.send("Please contact admin to refund the excess.")
 
         trans_col.update_one(
             {'UTR': utr},
