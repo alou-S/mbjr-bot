@@ -59,6 +59,10 @@ def db_member_verity():
                         }
                     },
                 )
+
+                if "is_verified" not in member_doc or member_doc["is_verified"] == False:
+                    embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
+                    await member.send(embed=embed)
             else:
                 member_col.update_one(
                     {"_id": member.id},
@@ -80,6 +84,9 @@ def db_member_verity():
                     "guild_join_time": int(time.time()),
                 }
             )
+
+            embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
+            await member.send(embed=embed)
 
     # Check if members in db still exist in guild.
     db_members = member_col.find({"in_guild": True})
@@ -293,12 +300,12 @@ async def db_member_verity_cmd(ctx):
 
 @bot.command(name='add-netid')
 @sub_channel_command()
-async def add_netid_command(ctx):
+async def add_netid_cmd(ctx):
     verify_email(ctx)
 
 @bot.command(name='subscribe')
 @sub_channel_command()
-async def subscribe(ctx):
+async def subscribe_cmd(ctx):
     if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
         ctx.send("We are currently at max subscriptions! No new subscription can be taken.\nSorry for the inconvienice.")
         return
