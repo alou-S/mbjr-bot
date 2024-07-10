@@ -11,6 +11,7 @@ import config
 import messages
 from base36 import *
 from otpmail import send_otp
+from wg import *
 
 # 1256347035184140349 : Unverified
 # 1256347101189640305 : Verified
@@ -36,7 +37,7 @@ def log_invalid_command(ctx):
     print(f"{log_time()} : Invalid Command Call : {ctx.command.name} {ctx.author} {ctx.guild.name if ctx.guild else 'DM'} {ctx.channel.name if isinstance(ctx.channel, discord.TextChannel) else 'DM'}")
 
 
-def db_member_verity():
+async def db_member_verity():
     print(f"{log_time()} : DB-Guild verity check triggered")
     guild = bot.guilds[0]
     guild_member_ids = set(member.id for member in guild.members)
@@ -279,7 +280,7 @@ async def on_member_remove(member):
 async def on_ready():
     print(f"{log_time()} : Logged on as {bot.user}")
 
-    db_member_verity()
+    await db_member_verity()
 
 
 @bot.command(name='verify')
@@ -295,7 +296,7 @@ async def verify_member_cmd(ctx):
 @bot.command(name='db-member-verity')
 @admin_channel_command()
 async def db_member_verity_cmd(ctx):
-    db_member_verity()
+    await db_member_verity()
     await ctx.send("DB Member Verity check triggered")
 
 @bot.command(name='add-netid')
@@ -394,15 +395,65 @@ async def subscribe_cmd(ctx):
             }
         )
 
+        if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
+            assign_config(netid)
+
         await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
         await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
         await ctx.send ("Use `!get-config` to get the Wireguard Configs")
 
+    except ValueError:
+        await ctx.send("Content sent was not a integer. Please try again.")
+        return
+
     except asyncio.TimeoutError:
         await ctx.send("Timed out waiting for reply. Please try again.")
-        return  
+        return
 
-# TODO: Write the help messages
+#    TODO: Write the help messages
+
+@bot.command(name='get-config')
+@sub_channel_command()
+async def get_config_cmd(ctx):
+    netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
+    sub_netid = []
+
+    for netid in netid_list:
+        sub_doc = subs_col.find_one({'_id': netid})
+        if sub_doc.get('is_subscribed', False) == True:
+            sub_netid.append(netid)
+
+    message = "**Select which config to get __(Reply with number)__:\n**"
+
+    for index, netid in enumerate(sub_netid, start=1):
+        message += f"{index}. {netid}\n"
+
+    await ctx.send(message)
+
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+
+    try:
+        reply = await bot.wait_for('message', check=check, timeout=30.0)
+        netid_index = int(reply.content)
+
+        if not 1 <= netid_index <= len(sub_netid):
+            await ctx.send("Invalid netid index. Please try again")
+            return
+
+        netid = sub_netid[netid_index-1]
+
+        await send_config(ctx, netid)
+
+    except ValueError:
+        await ctx.send("Content sent was not a integer. Please try again.")
+        return
+
+    except asyncio.TimeoutError:
+        await ctx.send("Timed out waiting for reply. Please try again.")
+        return
+
+
 bot.remove_command('help')
 @bot.command(name='help')
 async def help_cmd(ctx):
