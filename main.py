@@ -400,7 +400,7 @@ async def subscribe_cmd(ctx):
 
         await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
         await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
-        await ctx.send ("Use `!get-config` to get the Wireguard Configs")
+        await ctx.send ("Use `!get-config` to get the Wireguard configs")
 
     except ValueError:
         await ctx.send("Content sent was not a integer. Please try again.")
@@ -410,7 +410,7 @@ async def subscribe_cmd(ctx):
         await ctx.send("Timed out waiting for reply. Please try again.")
         return
 
-#    TODO: Write the help messages
+
 
 @bot.command(name='get-config')
 @sub_channel_command()
@@ -442,8 +442,49 @@ async def get_config_cmd(ctx):
             return
 
         netid = sub_netid[netid_index-1]
+        await ctx.send("Here are the configs:", files=send_config(netid))
 
-        await send_config(ctx, netid)
+    except ValueError:
+        await ctx.send("Content sent was not a integer. Please try again.")
+        return
+
+    except asyncio.TimeoutError:
+        await ctx.send("Timed out waiting for reply. Please try again.")
+        return
+
+@bot.command(name='rotate-keys')
+@sub_channel_command()
+async def rotate_keys_cmd(ctx):
+    netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
+    sub_netid = []
+
+    for netid in netid_list:
+        sub_doc = subs_col.find_one({'_id': netid})
+        if sub_doc.get('is_subscribed', False) == True:
+            sub_netid.append(netid)
+
+    message = "**Select netid's keys to rotate __(Reply with number)__:\n**"
+
+    for index, netid in enumerate(sub_netid, start=1):
+        message += f"{index}. {netid}\n"
+
+    await ctx.send(message)
+
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+
+    try:
+        reply = await bot.wait_for('message', check=check, timeout=30.0)
+        netid_index = int(reply.content)
+
+        if not 1 <= netid_index <= len(sub_netid):
+            await ctx.send("Invalid netid index. Please try again")
+            return
+
+        netid = sub_netid[netid_index-1]
+        key_rotate(netid)
+        await ctx.send(f"Keys for {netid} have been sucessfully rotated")
+        await ctx.send ("Use `!get-config` to get the new Wireguard configs")
 
     except ValueError:
         await ctx.send("Content sent was not a integer. Please try again.")
@@ -454,6 +495,7 @@ async def get_config_cmd(ctx):
         return
 
 
+#TODO: Write the help messages
 bot.remove_command('help')
 @bot.command(name='help')
 async def help_cmd(ctx):

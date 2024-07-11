@@ -67,7 +67,7 @@ def assign_config(netid):
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
 
 
-async def send_config(ctx, netid):
+def send_config(netid):
     sub_doc = subs_col.find_one({"_id": netid})
 
     ipv4_addr_1 = sub_doc.get("ipv4_addr")
@@ -85,7 +85,7 @@ async def send_config(ctx, netid):
     [Peer]
     PublicKey = {config.WG_SERVER_PUBKEY}
     AllowedIPs = {config.WG_AIPS}
-    PersistentKeepalive = 25
+    PersistentKeepalive = 25\
     """)
 
     config2 = dedent(f"""\
@@ -98,7 +98,7 @@ async def send_config(ctx, netid):
     [Peer]
     PublicKey = {config.WG_SERVER_PUBKEY}
     AllowedIPs = {config.WG_AIPS}
-    PersistentKeepalive = 25
+    PersistentKeepalive = 25\
     """)
 
     config1_obj = io.StringIO(config1)
@@ -106,11 +106,39 @@ async def send_config(ctx, netid):
     config2_obj = io.StringIO(config2)
     config2_obj.name = f"{netid}_B.conf"
 
-    await ctx.send("Here are the configs:", files=[discord.File(config1_obj), discord.File(config2_obj)])
+    return [discord.File(config1_obj), discord.File(config2_obj)]
 
 
-def key_rotate(ctx, netid):
-    return
+def key_rotate(netid):
+    sub_doc = subs_col.find_one({"_id": netid})
+    existing_priv_key_1 = sub_doc.get("priv_key_1")
+    existing_pub_key_1 = wg_pubkey(existing_priv_key_1)
+    existing_priv_key_2 = sub_doc.get("priv_key_2")
+    existing_pub_key_2 = wg_pubkey(existing_priv_key_2)
+
+    new_priv_key_1 = wg_genkey()
+    new_pub_key_1 = wg_pubkey(new_priv_key_1)
+    new_priv_key_2 = wg_genkey()
+    new_pub_key_2 = wg_pubkey(new_priv_key_2)
+
+    subs_col.update_one(
+        {"_id": netid},
+        {
+            "$set": {
+                "priv_key_1": new_priv_key_1,
+                "priv_key_2": new_priv_key_2
+            }
+        }
+    )
+
+    with open(config.WG_CONF, 'r+') as f:
+        content = f.read()  
+        new_content = content.replace(existing_pub_key_1, new_pub_key_1, 1)
+        new_content = new_content.replace(existing_pub_key_2, new_pub_key_2, 1)
+        f.seek(0)
+        f.write(new_content)
+
+    subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
 
 
 def enable_netid(netid):
