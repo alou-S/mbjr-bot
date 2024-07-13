@@ -316,95 +316,27 @@ async def subscribe_cmd(ctx):
         return
 
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
-    unsub_netid = []
+    unsub_netid = [netid for netid in netid_list if not subs_col.find_one({'_id': netid, 'is_subscribed': True})]
 
-    for netid in netid_list:
-        sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc is None:
-            unsub_netid.append(netid)
-        elif sub_doc.get('is_subscribed', False) == False:
-            unsub_netid.append(netid)
+    if not unsub_netid:
+        await ctx.send("All your NetIDs are already subscribed.")
+        return
 
-    message = "**Select which netid to activate __(Reply with number)__:\n**"
-
-    for index, netid in enumerate(unsub_netid, start=1):
-        message += f"{index}. {netid}\n"
-
-    await ctx.send(message)
+    netid = await dropdown_select(ctx, unsub_netid, prompt="Select which netid to activate")
+    embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
+    await ctx.send(embed=embed)
+    await ctx.send("Please enter UTR (UPI Transaction No). of your payment:")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
 
     try:
-        reply = await bot.wait_for('message', check=check, timeout=30.0)
-        netid_index = int(reply.content)
-
-        if not 1 <= netid_index <= len(unsub_netid):
-            await ctx.send("Invalid netid index. Please try again")
-            return
-
-        netid = unsub_netid[netid_index-1]
-
-        embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
-        await ctx.send(embed=embed)
-        await ctx.send("Please enter UTR (UPI Transaction No). of your payment:")
-
         reply = await bot.wait_for('message', check=check, timeout=120.0)
         utr = int(reply.content)
 
         if len(str(utr)) != 12:
             await ctx.send("Invalid UTR (Should be 12 digits). Please try again.")
             return
-
-        trans_doc = trans_col.find_one({'UTR': utr})
-
-        if trans_doc == None:
-            await ctx.send("Transaction not found. Please try again")
-            return
-        elif trans_doc.get('is_claimed', False) == True:
-            await ctx.send("Duplicate UTR ID. What are you trying bro?")
-            return
-        elif trans_doc.get('Amount') < 80:
-            await ctx.send("You payed less than 80 rupees. Please try again")
-            await ctx.send("Please contact admin to refund the transaction.")
-            return
-        elif trans_doc.get('Amount') > 80:
-            await ctx.send("You payed more than 80 rupees.")
-            await ctx.send("Please contact admin to refund the excess.")
-
-        trans_col.update_one(
-            {'UTR': utr},
-            {
-                "$set": {
-                    "is_claimed": True
-                }
-            },
-        )
-
-        subs_col.update_one(
-            {"_id": netid},
-            {'$inc': {"sub_cycle": 1}},         
-            upsert=True
-        )
-
-        cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
-
-        subs_col.update_one(
-            {"_id": netid},
-            {
-                "$set": {
-                    f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
-                    "is_subscribed": True
-                }       
-            }
-        )
-
-        if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
-            assign_config(netid)
-
-        await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
-        await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
-        await ctx.send ("Use `!get-config` to get the Wireguard configs")
 
     except ValueError:
         await ctx.send("Content sent was not a integer. Please try again.")
@@ -413,6 +345,56 @@ async def subscribe_cmd(ctx):
     except asyncio.TimeoutError:
         await ctx.send("Timed out waiting for reply. Please try again.")
         return
+
+    trans_doc = trans_col.find_one({'UTR': utr})
+
+    if trans_doc == None:
+        await ctx.send("Transaction not found. Please try again")
+        return
+    elif trans_doc.get('is_claimed', False) == True:
+        await ctx.send("Duplicate UTR ID. What are you trying bro?")
+        return
+    elif trans_doc.get('Amount') < 80:
+        await ctx.send("You payed less than 80 rupees. Please try again")
+        await ctx.send("Please contact admin to refund the transaction.")
+        return
+    elif trans_doc.get('Amount') > 80:
+        await ctx.send("You payed more than 80 rupees.")
+        await ctx.send("Please contact admin to refund the excess.")
+
+    trans_col.update_one(
+        {'UTR': utr},
+        {
+            "$set": {
+                "is_claimed": True
+            }
+        },
+    )
+
+    subs_col.update_one(
+        {"_id": netid},
+        {'$inc': {"sub_cycle": 1}},         
+        upsert=True
+    )
+
+    cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+
+    subs_col.update_one(
+        {"_id": netid},
+        {
+            "$set": {
+                f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
+                "is_subscribed": True
+            }       
+        }
+    )
+
+    if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
+        assign_config(netid)
+
+    await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
+    await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
+    await ctx.send ("Use `!get-config` to get the Wireguard configs")
 
 
 @bot.command(name='get-config')
@@ -538,5 +520,6 @@ async def dropdown_select(ctx, item_list, prompt="Select an item"):
 
     await message.edit(content=f"Selected: {selected_item}", view=None)
     return selected_item
+
 
 bot.run(config.DISCORD_BOT_TOKEN)
