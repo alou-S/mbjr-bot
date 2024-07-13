@@ -2,6 +2,7 @@ import time
 import discord
 from discord.ext import commands
 from discord import SelectOption
+from discord.ui import Select, View
 import random
 import re
 import asyncio
@@ -442,7 +443,7 @@ async def enable_netid_cmd(ctx):
     if enable_netid(netid) is False:
         await ctx.send(f"{netid} is already enabled.")
     else:
-        await interctx.send(f"{netid} has been enabled.")
+        await ctx.send(f"{netid} has been enabled.")
 
 
 @bot.command(name='disable-netid')
@@ -480,26 +481,23 @@ async def help_cmd(ctx):
         log_invalid_command(ctx)
 
 
-async def dropdown_select(ctx, item_list, prompt="Select an item"):
+async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
     pages = [item_list[i:i+23] for i in range(0, len(item_list), 23)]
     current_page = 0
     selected_item = None
-
+    
     while True:
         options = []
-        
         if current_page > 0:
             options.append(SelectOption(label="◀️ Previous Page", value="!#prev", description="Go to the previous page"))
-
-        options.extend([SelectOption(label=str(item), value=str(i)) for i, item in enumerate(pages[current_page])])        
-
+        options.extend([SelectOption(label=str(item), value=str(i)) for i, item in enumerate(pages[current_page])])
         if current_page < len(pages) - 1:
             options.append(SelectOption(label="Next Page ▶️", value="!#next", description="Go to the next page"))
         
-        select = discord.ui.Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
-        view = discord.ui.View()
+        select = Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
+        view = View(timeout=timeout)
         view.add_item(select)
-
+        
         async def select_callback(interaction):
             nonlocal selected_item, current_page
             if select.values[0] == "!#prev":
@@ -510,15 +508,35 @@ async def dropdown_select(ctx, item_list, prompt="Select an item"):
                 selected_item = pages[current_page][int(select.values[0])]
             await interaction.response.defer()
             view.stop()
-
-        select.callback = select_callback
-        message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
-        await view.wait()
         
-        if selected_item is not None:
+        select.callback = select_callback
+        
+        message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
+        timer_message = await ctx.send(f"Time remaining: {timeout}s")
+        
+        start_time = asyncio.get_event_loop().time()
+        
+        while timeout > 0 and not view.is_finished():
+            await asyncio.sleep(2.5)
+            elapsed_time = int(asyncio.get_event_loop().time() - start_time)
+            remaining_time = max(0, timeout - elapsed_time)
+            await timer_message.edit(content=f"Time remaining: {remaining_time}s")
+            
+            if remaining_time <= 0 or view.is_finished():
+                break
+        
+        if view.is_finished() and selected_item is not None:
+            await timer_message.delete()
             break
+        
+        if remaining_time <= 0:
+            await message.edit(content="Selection timed out.", view=None)
+            await timer_message.delete()
+            return None
+        
         await message.delete()
-
+        await timer_message.delete()
+    
     await message.edit(content=f"Selected: {selected_item}", view=None)
     return selected_item
 
