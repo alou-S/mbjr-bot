@@ -1,10 +1,11 @@
 import time
 import discord
+from discord.ext import commands
+from discord import SelectOption
 import random
 import re
 import asyncio
 from pymongo import MongoClient
-from discord.ext import commands
 from functools import wraps
 
 import config
@@ -411,7 +412,6 @@ async def subscribe_cmd(ctx):
         return
 
 
-
 @bot.command(name='get-config')
 @sub_channel_command()
 async def get_config_cmd(ctx):
@@ -495,6 +495,36 @@ async def rotate_keys_cmd(ctx):
         return
 
 
+@bot.command(name='enable-netid')
+@admin_channel_command()
+async def enable_netid_cmd(ctx):
+    docs = member_col.find( {"netid": {"$exists": True}})   
+    netid_list = []
+    for doc in docs:
+        netid_list.extend(doc['netid'])
+
+    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to enable")    
+    if enable_netid(netid) is False:
+        await ctx.send(f"{netid} is already enabled.")
+    else:
+        await interctx.send(f"{netid} has been enabled.")
+
+
+@bot.command(name='disable-netid')
+@admin_channel_command()
+async def disable_netid_cmd(ctx):
+    docs = member_col.find( {"netid": {"$exists": True}})
+    netid_list = []
+    for doc in docs:
+        netid_list.extend(doc['netid'])
+
+    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to disable")
+    if disable_netid(netid) is False:
+        await ctx.send(f"{netid} is already disabled.")
+    else:
+        await ctx.send(f"{netid} has been disabled.")
+
+
 #TODO: Write the help messages
 bot.remove_command('help')
 @bot.command(name='help')
@@ -514,5 +544,47 @@ async def help_cmd(ctx):
     else:
         log_invalid_command(ctx)
 
+
+async def dropdown_select(ctx, item_list, prompt="Select an item"):
+    pages = [item_list[i:i+23] for i in range(0, len(item_list), 23)]
+    current_page = 0
+    selected_item = None
+
+    while True:
+        options = []
+        
+        if current_page > 0:
+            options.append(SelectOption(label="◀️ Previous Page", value="!#prev", description="Go to the previous page"))
+
+        options.extend([SelectOption(label=str(item), value=str(i)) for i, item in enumerate(pages[current_page])])        
+
+        if current_page < len(pages) - 1:
+            options.append(SelectOption(label="Next Page ▶️", value="!#next", description="Go to the next page"))
+        
+        select = discord.ui.Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
+        view = discord.ui.View()
+        view.add_item(select)
+
+        async def select_callback(interaction):
+            nonlocal selected_item, current_page
+            if select.values[0] == "!#prev":
+                current_page -= 1
+            elif select.values[0] == "!#next":
+                current_page += 1
+            else:
+                selected_item = pages[current_page][int(select.values[0])]
+            await interaction.response.defer()
+            view.stop()
+
+        select.callback = select_callback
+        message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
+        await view.wait()
+        
+        if selected_item is not None:
+            break
+        await message.delete()
+
+    await message.edit(content=f"Selected: {selected_item}", view=None)
+    return selected_item
 
 bot.run(config.DISCORD_BOT_TOKEN)

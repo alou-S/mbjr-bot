@@ -142,7 +142,45 @@ def key_rotate(netid):
 
 
 def enable_netid(netid):
-    return
+    with open(config.WG_CONF, 'r+') as f:
+        lines = f.readlines()
+        
+        for item in [f"#{netid}_A", f"#{netid}_B"]:
+            target_line = -1        
+            for i, line in enumerate(lines):
+                if line.strip() == item:
+                    target_line = i
+                    break
+
+            if not lines[target_line+1].startswith('#'):
+                return "Invalid"
+
+            for i in range(target_line + 1, target_line + 4):
+                lines[i] = lines[i][1:]
+                
+            
+        f.seek(0)
+        f.writelines(lines)
+        f.truncate()
+
 
 def disable_netid(netid):
-    return
+    with open(config.WG_CONF, 'r+') as f:
+        lines = f.readlines()
+        
+        for item in [f"#{netid}_A", f"#{netid}_B"]:
+            target_line = -1        
+            for i, line in enumerate(lines):
+                if line.strip() == item:
+                    target_line = i
+                    break
+
+            if lines[target_line+1].startswith('#'):
+                return "Invalid"
+
+            for i in range(target_line + 1, target_line + 4):
+                lines[i] = f'#{lines[i]}'
+            
+        f.seek(0)
+        f.writelines(lines)
+        f.truncate()
