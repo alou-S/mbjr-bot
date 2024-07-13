@@ -441,6 +441,7 @@ async def subscribe_cmd(ctx):
             }       
         }
     )
+    enable_netid(netid)
 
     if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
         assign_config(netid)
