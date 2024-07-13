@@ -1,24 +1,23 @@
 - On Join
-  - Send DM with memo
-  - Check if active profile count <300
-    - Send Name and SRM Mail Prompt
-    - Request OTP
+  - Send DM with memo ✅
+  - Check if active profile count <300 ✅
+    - Send SRM Mail Prompt ✅
+    - Request OTP ✅
 
     {if OTP verified}
-  - Create Channel with UserID
-    Commands:-
-      - subscribe
-      - configs
-      - rotate keys
-      -
+  - Create Channel with UserID ✅
+    Commands:-  
+      - add-netid ✅
+      - subscribe ✅
+      - get-configs ✅
+      - rotate-keys ✅
+      - get-usage
+      
+- Primary and Child NetID's ✅
+- Subscription Reminder
+- Sub verity  
 
-- Primary and Child NetID's
-
--- Rate Limit User Join ( Raid Prevention )
-
-- VPN Auto Surcharge Calculation
-- Request Current Usage statistics
-- UPI Verification via Termux API
+- UPI Verification via Termux API ✅
 - Auto Disable, Enable
 
 
