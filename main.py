@@ -411,7 +411,7 @@ async def get_config_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc.get('is_subscribed', False) == True:
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get")
@@ -430,7 +430,7 @@ async def rotate_keys_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc.get('is_subscribed', False) == True:
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select netid for key rotation")
