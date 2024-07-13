@@ -307,7 +307,54 @@ async def db_member_verity_cmd(ctx):
 @bot.command(name='add-netid')
 @sub_channel_command()
 async def add_netid_cmd(ctx):
-    verify_email(ctx)
+    if await verify_email(ctx) is True:
+        ctx.send("The above netid has been sucessfully added to your account.")
+
+
+@bot.command(name='remove-netid')
+@sub_channel_command()
+async def remove_netid_cmd(ctx):
+    netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
+    netid_list.pop(0)
+    if len(netid_list) < 1:
+        ctx.send("You have no netid's that can be removed.")
+
+    netid = await dropdown_select(ctx, netid_list, prompt="Select which netid to remove from your account")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
+    await   ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
+
+    bool_list = ["No, I have changed my mind", "Yes, I still want to continue."]
+    bool_reply = await dropdown_select(ctx, bool_list, prompt="Do you still want to continue?")
+
+    if bool_reply == bool_list[1]:  
+        try:
+            disable_netid(netid)
+
+            cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+            subs_col.update_one(
+                {"_id": netid},
+                {
+                    "$set": {
+                        f"cycle{cycle}_end_date": time.strftime("%Y-%m-%d"),
+                        "is_subscribed": False
+                    }       
+                }
+            )
+        except:
+            pass
+
+        member_col.update_one(
+            {"_id": ctx.author.id},
+            {"$pull": {"netid": netid}}
+        )   
+
+        await ctx.send(f"Netid {netid} has been successfuly removed from the account")
+    else:
+        await ctx.send("Action cancelled. Have a nice day")
+
 
 @bot.command(name='subscribe')
 @sub_channel_command()
