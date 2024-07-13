@@ -6,7 +6,6 @@ memo = """- Cost: 80 Rupees/Cycle
 Over 250GB overage costs will apply and will be asked with the payment for the next cycle. ( Overage GB/250GB * 80 Rupees )
 
 Full Details: <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>
-Use `!verify` to begin verification
 """
 
 

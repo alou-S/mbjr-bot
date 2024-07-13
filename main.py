@@ -65,6 +65,7 @@ async def db_member_verity():
                 if "is_verified" not in member_doc or member_doc["is_verified"] == False:
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
+                    await member.send("Use `!verify` to begin verification")
             else:
                 member_col.update_one(
                     {"_id": member.id},
@@ -89,6 +90,7 @@ async def db_member_verity():
 
             embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
             await member.send(embed=embed)
+            await member.send("Use `!verify` to begin verification")
 
     # Check if members in db still exist in guild.
     db_members = member_col.find({"in_guild": True})
