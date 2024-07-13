@@ -271,6 +271,7 @@ async def on_member_join(member):
     if "is_verified" not in member_doc or member_doc["is_verified"] == False:
         embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
         await member.send(embed=embed)
+        await member.send("Use `!verify` to begin verification")
 
 
 @bot.event
