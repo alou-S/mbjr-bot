@@ -153,7 +153,7 @@ def enable_netid(netid):
                     break
 
             if not lines[target_line+1].startswith('#'):
-                return "Invalid"
+                return False
 
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = lines[i][1:]
@@ -176,7 +176,7 @@ def disable_netid(netid):
                     break
 
             if lines[target_line+1].startswith('#'):
-                return "Invalid"
+                return False
 
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = f'#{lines[i]}'

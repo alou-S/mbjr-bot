@@ -325,6 +325,7 @@ async def subscribe_cmd(ctx):
     netid = await dropdown_select(ctx, unsub_netid, prompt="Select which netid to activate")
     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
     await ctx.send(embed=embed)
+    await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
     await ctx.send("Please enter UTR (UPI Transaction No). of your payment:")
 
     def check(m):
