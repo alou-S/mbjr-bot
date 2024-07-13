@@ -324,6 +324,10 @@ async def subscribe_cmd(ctx):
         return
 
     netid = await dropdown_select(ctx, unsub_netid, prompt="Select which netid to activate")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
     await ctx.send(embed=embed)
     await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
@@ -411,6 +415,10 @@ async def get_config_cmd(ctx):
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
     await ctx.send("Here are the configs:", files=send_config(netid))
 
 
@@ -426,6 +434,10 @@ async def rotate_keys_cmd(ctx):
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select netid for key rotation")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
     key_rotate(netid)
     await ctx.send(f"Keys for {netid} have been sucessfully rotated")
     await ctx.send ("Use `!get-config` to get the new Wireguard configs")
@@ -439,7 +451,11 @@ async def enable_netid_cmd(ctx):
     for doc in docs:
         netid_list.extend(doc['netid'])
 
-    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to enable")    
+    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to enable")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+   
     if enable_netid(netid) is False:
         await ctx.send(f"{netid} is already enabled.")
     else:
@@ -455,6 +471,10 @@ async def disable_netid_cmd(ctx):
         netid_list.extend(doc['netid'])
 
     netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to disable")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
     if disable_netid(netid) is False:
         await ctx.send(f"{netid} is already disabled.")
     else:
