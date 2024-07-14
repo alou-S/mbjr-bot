@@ -1,7 +1,7 @@
 import discord
 import config
 import io
-from pymongo import MongoClient 
+from pymongo import MongoClient
 import nacl
 from nacl.public import PrivateKey
 import random
@@ -157,7 +157,7 @@ def key_rotate(netid):
     )
 
     with open(config.WG_CONF, 'r+') as f:
-        content = f.read()  
+        content = f.read()
         new_content = content.replace(existing_pub_key_1, new_pub_key_1, 1)
         new_content = new_content.replace(existing_pub_key_2, new_pub_key_2, 1)
         f.seek(0)
@@ -179,7 +179,7 @@ def enable_netid(netid, cycle=False):
                 "$set": {
                     f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
                     "is_subscribed": True
-                }       
+                }
             }
         )
         print(f"{log_time()} : Set is_subscribed to True and cycle{cycle}_start_date to {time.strftime("%Y-%m-%d")}.")
@@ -189,16 +189,16 @@ def enable_netid(netid, cycle=False):
             {
                 "$set": {
                     "is_subscribed": True
-                }       
+                }
             }
         )
         print(f"{log_time()} : Set is_subscribed to True.")
 
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
-        
+
         for item in [f"#{netid}_A", f"#{netid}_B"]:
-            target_line = -1        
+            target_line = -1
             for i, line in enumerate(lines):
                 if line.strip() == item:
                     target_line = i
@@ -210,8 +210,7 @@ def enable_netid(netid, cycle=False):
 
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = lines[i][1:]
-                
-            
+
         f.seek(0)
         f.writelines(lines)
         f.truncate()
@@ -228,7 +227,7 @@ def disable_netid(netid, cycle=False):
                 "$set": {
                     f"cycle{cycle}_end_date": time.strftime("%Y-%m-%d"),
                     "is_subscribed": False
-                }       
+                }
             }
         )
         print(f"{log_time()} : Set is_subscribed to False and cycle{cycle}_end_date to {time.strftime("%Y-%m-%d")}.")
@@ -238,16 +237,16 @@ def disable_netid(netid, cycle=False):
             {
                 "$set": {
                     "is_subscribed": False
-                }       
+                }
             }
         )
         print(f"{log_time()} : Set is_subscribed to False.")
 
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
-        
+
         for item in [f"#{netid}_A", f"#{netid}_B"]:
-            target_line = -1        
+            target_line = -1
             for i, line in enumerate(lines):
                 if line.strip() == item:
                     target_line = i
@@ -259,7 +258,7 @@ def disable_netid(netid, cycle=False):
 
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = f'#{lines[i]}'
-            
+
         f.seek(0)
         f.writelines(lines)
         f.truncate()

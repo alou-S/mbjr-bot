@@ -152,7 +152,7 @@ async def verify_email(ctx):
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
         await ctx.send("You have failed to verify too many times. Please contact admin.")
         return False
-    
+
     await ctx.send("Please enter SRM Net ID")
 
     netid = await text_input(ctx, title="SRM NetID", label="Please enter NetID", min_length=6, max_length=6)
@@ -344,7 +344,7 @@ async def on_ready():
         {
             "$set": {
                 "last_sub_verity": time.strftime("%Y-%m-%d")
-            }       
+            }
         }
     )
 
@@ -404,7 +404,7 @@ async def remove_netid_cmd(ctx):
     bool_list = ["No, I have changed my mind", "Yes, I still want to continue."]
     bool_reply = await dropdown_select(ctx, bool_list, prompt="Do you still want to continue?")
 
-    if bool_reply == bool_list[1]:  
+    if bool_reply == bool_list[1]:
         try:
             disable_netid(netid, cycle=True)
         except:
@@ -413,7 +413,7 @@ async def remove_netid_cmd(ctx):
         member_col.update_one(
             {"_id": ctx.author.id},
             {"$pull": {"netid": netid}}
-        )   
+        )
 
         print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} removed NetID {netid} from their account.")
         await ctx.send(f"Netid {netid} has been successfuly removed from the account")
@@ -476,7 +476,7 @@ async def subscribe_cmd(ctx):
         print(f"{log_time()} : Overpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("You payed more than 80 rupees.")
         await ctx.send("Please contact admin to refund the excess.")
-    
+
     trans_col.update_one(
         {'UTR': utr},
         {
@@ -491,7 +491,7 @@ async def subscribe_cmd(ctx):
         {"_id": netid},
         {'$inc': {"sub_cycle": 1}},         
         upsert=True
-    ) 
+    )
     print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {sub_col.find_one({"_id": netid}).get('sub_cycle')}.")
     enable_netid(netid, cycle=True)
 
@@ -611,7 +611,7 @@ async def rotate_keys_cmd(ctx):
 @bot.command(name='enable-netid')
 @admin_channel_command()
 async def enable_netid_cmd(ctx):
-    docs = member_col.find( {"netid": {"$exists": True}})   
+    docs = member_col.find( {"netid": {"$exists": True}})
     netid_list = []
     for doc in docs:
         netid_list.extend(doc['netid'])
@@ -672,7 +672,7 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
     pages = [item_list[i:i+23] for i in range(0, len(item_list), 23)]
     current_page = 0
     selected_item = None
-    
+
     while True:
         options = []
         if current_page > 0:
@@ -680,11 +680,11 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
         options.extend([SelectOption(label=str(item), value=str(i)) for i, item in enumerate(pages[current_page])])
         if current_page < len(pages) - 1:
             options.append(SelectOption(label="Next Page ▶️", value="!#next", description="Go to the next page"))
-        
+
         select = Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
         view = View(timeout=timeout)
         view.add_item(select)
-        
+
         async def select_callback(interaction):
             nonlocal selected_item, current_page
             if select.values[0] == "!#prev":
@@ -695,35 +695,35 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
                 selected_item = pages[current_page][int(select.values[0])]
             await interaction.response.defer()
             view.stop()
-        
+
         select.callback = select_callback
-        
+
         message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
         timer_message = await ctx.send(f"Time remaining: {timeout}s")
-        
+
         start_time = asyncio.get_event_loop().time()
-        
+
         while timeout > 0 and not view.is_finished():
             await asyncio.sleep(2.5)
             elapsed_time = int(asyncio.get_event_loop().time() - start_time)
             remaining_time = max(0, timeout - elapsed_time)
             await timer_message.edit(content=f"Time remaining: {remaining_time}s")
-            
+
             if remaining_time <= 0 or view.is_finished():
                 break
-        
+
         if view.is_finished() and selected_item is not None:
             await timer_message.delete()
             break
-        
+
         if remaining_time <= 0:
             await message.edit(content="Selection timed out.", view=None)
             await timer_message.delete()
             return None
-        
+
         await message.delete()
         await timer_message.delete()
-    
+
     await message.edit(content=f"Selected: {selected_item}", view=None)
     return selected_item
 
@@ -762,7 +762,7 @@ async def text_input(ctx, title, label, placeholder=None, min_length=1, max_leng
     view = ResponseView()
     modal_message = await ctx.send("Please click the button below to provide your input.", view=view)
     timer_message = await ctx.send(f"Time remaining: {timeout} seconds")
-    
+
     end_time = asyncio.get_event_loop().time() + timeout
 
     async def update_timer():
