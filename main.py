@@ -235,6 +235,19 @@ async def verify_member(ctx):
             await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
 
+def human_bytes(bytes):
+    if bytes < 1024:
+        return f"{bytes} B"
+    elif bytes < 1024 ** 2:
+        return f"{bytes / 1024:.2f} KB"
+    elif bytes < 1024 ** 3:
+        return f"{bytes / (1024 ** 2):.2f} MB"
+    elif bytes < 1024 ** 4:
+        return f"{bytes / (1024 ** 3):.2f} GB"
+    else:
+        return f"{bytes / (1024 ** 4):.2f} TB"
+
+
 def admin_channel_command():
     def decorator(func):
         @wraps(func)
@@ -492,6 +505,65 @@ async def get_config_cmd(ctx):
 
     await ctx.send("Here are the configs:", files=send_config(netid))
 
+@bot.command(name='get-usage')
+@sub_channel_command()
+async def get_usage_cmd(ctx):
+    netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
+    sub_netid = []
+
+    for netid in netid_list:
+        sub_doc = subs_col.find_one({'_id': netid})
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
+            sub_netid.append(netid)
+
+    netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get status for")
+    if netid is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+
+    sub_doc = subs_col.find_one({'_id': netid})
+    sub_cycle = sub_doc['sub_cycle']
+    cycle_list = [f"Cycle {i}" for i in range(sub_cycle, 0, -1)]
+    cycle_str = await dropdown_select(ctx=ctx, item_list=cycle_list, prompt="Select which cycle to get status for")
+    if cycle_str is None:
+        await ctx.send("You didn't make a selection in time.")
+        return
+    cycle = sub_cycle - cycle_list.index(cycle_str)
+
+    ipv4 = sub_doc['ipv4_addr']
+    cyc_st = sub_doc[f'cycle{cycle}_start_date']
+    cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
+
+    data = get_usage(ipv4, cyc_st, cyc_end)
+    download_sum = data[0] + data[2]
+    upload_sum = data[1] + data[3]
+
+    message = dedent(f"""\
+        **Cycle**: {cycle}
+        **Start Date**: {cyc_st}
+        **End Date**: {cyc_end}
+
+        ### Usage:
+        **{netid}_A**:
+            Download: {human_bytes(data[0])}
+            Upload: {human_bytes(data[1])}
+
+        **{netid}_B**
+            Download: {human_bytes(data[2])}
+            Upload: {human_bytes(data[3])}
+
+        ### Total Usage:
+            Download: {human_bytes(download_sum)} / {config.VPN_MAX_DATA} GB
+            Upload:     {human_bytes(upload_sum)} / {config.VPN_MAX_DATA} GB
+        """)
+
+    if max(download_sum, upload_sum) > config.VPN_MAX_DATA * 1073741824:
+        message += dedent(f"""\
+            **Current Overage Cost: Rs. {round(((max(download_sum, upload_sum) / (config.VPN_MAX_DATA * 1073741824)) * 80)) - 80}**
+        """)
+
+    embed = discord.Embed(title="VPN Usage Stats", description=message, color=discord.Color.red())
+    await ctx.send(embed=embed)
 
 @bot.command(name='rotate-keys')
 @sub_channel_command()

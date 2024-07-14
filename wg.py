@@ -9,6 +9,9 @@ from textwrap import dedent
 import base64
 import subprocess
 import os
+import time
+from datetime import datetime, timedelta
+import requests
 
 mongo_client = MongoClient(config.MONGO_CLIENT)
 db = mongo_client[config.MONGO_DB_NAME]
@@ -18,11 +21,32 @@ def wg_genkey():
     priv_key = PrivateKey.generate()
     return base64.b64encode(priv_key.encode()).decode('ascii')
 
+
 def wg_pubkey(priv_key_str):
     priv_key_bytes = base64.b64decode(priv_key_str)
     priv_key = PrivateKey(priv_key_bytes)
     pub_key = priv_key.public_key
     return base64.b64encode(pub_key.encode()).decode('ascii')
+
+
+def es_query(ipv4, ip_type, byte_type, cyc_st, cyc_end):
+    url = "http://localhost:9200/_search"
+    headers = {'Content-Type': 'application/json'}
+    data = {
+        "query": {
+            "bool": {
+            "filter": [
+                {"range": {"@timestamp": {"gte": cyc_st, "lte": cyc_end}}},
+                {"term": {f"{ip_type}.ip": ipv4}},
+                {"term": {"interface.name.keyword": "mbjr-part"}}
+            ]
+            }
+        },
+        "aggs": {"total_server_bytes": {"sum": {"field": f"{byte_type}.bytes"}}}
+    }
+
+    response = requests.get(url, headers=headers, json=data)
+    return float(response.json()['aggregations'][f'total_server_bytes']['value'])
 
 
 def assign_config(netid):
@@ -228,3 +252,15 @@ def disable_netid(netid, cycle=False):
         f.seek(0)
         f.writelines(lines)
         f.truncate()
+
+
+def get_usage(ipv4, cyc_st, cyc_end):
+    ipv4_addr_1 = ipv4
+    ipv4_addr_2 = '.'.join(ipv4_addr_1.split('.')[:-1] + [str(int(  ipv4_addr_1.split('.')[-1]) + 1)])
+
+    rx_bytes_1 = es_query(ipv4_addr_1, "server", "client", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "server", cyc_st, cyc_end)
+    tx_bytes_1 = es_query(ipv4_addr_1, "server", "server", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "client", cyc_st, cyc_end)
+    rx_bytes_2 = es_query(ipv4_addr_2, "server", "client", cyc_st, cyc_end) + es_query(ipv4_addr_2, "client", "server", cyc_st, cyc_end)
+    tx_bytes_2 = es_query(ipv4_addr_2, "server", "server", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "client", cyc_st, cyc_end)
+
+    return [rx_bytes_1, tx_bytes_1, rx_bytes_2, tx_bytes_2]

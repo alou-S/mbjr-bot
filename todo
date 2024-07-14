@@ -12,7 +12,7 @@
       - subscribe ✅
       - get-configs ✅
       - rotate-keys ✅
-      - get-usage
+      - get-usage ✅
       
 - Primary and Child NetID's ✅
 - UPI Verification via Termux API ✅
