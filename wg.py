@@ -10,8 +10,9 @@ import base64
 import subprocess
 import os
 import time
-from datetime import datetime, timedelta
 import requests
+
+from main import log_time
 
 mongo_client = MongoClient(config.MONGO_CLIENT)
 db = mongo_client[config.MONGO_DB_NAME]
@@ -46,7 +47,7 @@ def es_query(ipv4, ip_type, byte_type, cyc_st, cyc_end):
     }
 
     response = requests.get(url, headers=headers, json=data)
-    return float(response.json()['aggregations'][f'total_server_bytes']['value'])
+    return float(response.json()['aggregations']['total_server_bytes']['value'])
 
 
 def assign_config(netid):
@@ -163,14 +164,14 @@ def key_rotate(netid):
         f.seek(0)
         f.write(new_content)
 
-    print(f"{log_time()} : Rotated to Publick Key {pub_key_1} {pub_key_2} for NetID {netid}")
+    print(f"{log_time()} : Rotated to Publick Key {new_pub_key_1} {new_pub_key_2} for NetID {netid}")
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
     print(f"{log_time()} : Triggered wg syncconf")
 
 
 def enable_netid(netid, cycle=False):
     print(f"{log_time()} : enable_netid called for NetID {netid} with cycle {cycle}.")
-    if cycle == True:
+    if cycle is True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
 
         subs_col.update_one(
@@ -218,7 +219,7 @@ def enable_netid(netid, cycle=False):
 
 def disable_netid(netid, cycle=False):
     print(f"{log_time()} : disable_netid called for NetID {netid} with cycle {cycle}.")
-    if cycle == True:
+    if cycle is True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
 
         subs_col.update_one(

@@ -1,7 +1,7 @@
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord import SelectOption
 from discord.ui import Select, View
 import random
@@ -10,12 +10,13 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pymongo import MongoClient
 from functools import wraps
+from textwarp import dedent
 
 import config
 import messages
-from base36 import *
+from base36 import to_base36
 from otpmail import send_otp
-from wg import *
+from wg import enable_netid, disable_netid, get_usage, key_rotate, assign_config, send_config
 
 # 1256347035184140349 : Unverified
 # 1256347101189640305 : Verified
@@ -66,7 +67,7 @@ async def db_member_verity():
                     },
                 )
 
-                if "is_verified" not in member_doc or member_doc["is_verified"] == False:
+                if "is_verified" not in db_member or db_member["is_verified"] is False:
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
                     await member.send("Use `!verify` to begin verification")
@@ -114,7 +115,7 @@ async def sub_verity():
     subs = subs_col.find()
 
     for sub in subs:
-        if sub['is_subscribed'] == False:
+        if sub['is_subscribed'] is False:
             continue
 
         sub_cycle = sub['sub_cycle']
@@ -156,7 +157,7 @@ async def verify_email(ctx):
     await ctx.send("Please enter SRM Net ID")
 
     netid = await text_input(ctx, title="SRM NetID", label="Please enter NetID", min_length=6, max_length=6)
-    if otp_msg is None:
+    if netid is None:
         await ctx.send("No response received. The operation has been cancelled.")
         return
 
@@ -209,7 +210,7 @@ async def verify_email(ctx):
 
 async def verify_member(ctx):
     print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} triggered verification.")
-    if await verify_email(ctx) == True:
+    if await verify_email(ctx) is True:
         guild = bot.guilds[0]
         unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
         verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
@@ -237,7 +238,7 @@ async def verify_member(ctx):
 
         channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
 
-        await ctx.send(f"Account verification successful! The above NetID has been bound to your account as primary NetID.")
+        await ctx.send("Account verification successful! The above NetID has been bound to your account as primary NetID.")
         await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
 
@@ -314,7 +315,7 @@ async def on_member_join(member):
 
     member_doc = member_col.find_one({"_id": member.id})
 
-    if "is_verified" not in member_doc or member_doc["is_verified"] == False:
+    if "is_verified" not in member_doc or member_doc["is_verified"] is False:
         embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
         await member.send(embed=embed)
         await member.send("Use `!verify` to begin verification")
@@ -357,7 +358,7 @@ async def on_ready():
 @dm_command()
 async def verify_member_cmd(ctx):
     member_doc = member_col.find_one({"_id": ctx.author.id})
-    if "is_verified" not in member_doc or member_doc["is_verified"] == False:
+    if "is_verified" not in member_doc or member_doc["is_verified"] is False:
         await verify_member(ctx)
     else:
         await ctx.send("You are already verified.")
@@ -459,11 +460,11 @@ async def subscribe_cmd(ctx):
     trans_doc = trans_col.find_one({'UTR': utr})
     trans_amount = trans_doc.get('Amount')
 
-    if trans_doc == None:
+    if trans_doc is None:
         print(f"{log_time()} : Non existant UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Transaction not found. Please try again")
         return
-    elif trans_doc.get('is_claimed', False) == True:
+    elif trans_doc.get('is_claimed', False) is True:
         print(f"{log_time()} : Duplicate UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Duplicate UTR ID. What are you trying bro?")
         return
@@ -492,7 +493,7 @@ async def subscribe_cmd(ctx):
         {'$inc': {"sub_cycle": 1}},         
         upsert=True
     )
-    print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {sub_col.find_one({"_id": netid}).get('sub_cycle')}.")
+    print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {subs_col.find_one({"_id": netid}).get('sub_cycle')}.")
     enable_netid(netid, cycle=True)
 
     if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
@@ -512,7 +513,7 @@ async def get_config_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get")
@@ -532,7 +533,7 @@ async def get_usage_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get status for")
@@ -594,7 +595,7 @@ async def rotate_keys_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc is not None and sub_doc.get('is_subscribed', False) == True:
+        if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
             sub_netid.append(netid)
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select netid for key rotation")
