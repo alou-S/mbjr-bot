@@ -87,8 +87,9 @@ def assign_config(netid):
         PublicKey = {pub_key_2}
         AllowedIPs = {ipv4_addr_2}/32
         """))
-
+    print(f"{log_time()} : Assigned IPv4 {ipv4_addr_1} with Public Keys {pub_key_1} {pub_key_2} for NetID {netid}.")
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
+    print(f"{log_time()} : Triggered wg syncconf")
 
 
 def send_config(netid):
@@ -162,10 +163,13 @@ def key_rotate(netid):
         f.seek(0)
         f.write(new_content)
 
+    print(f"{log_time()} : Rotated to Publick Key {pub_key_1} {pub_key_2} for NetID {netid}")
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
+    print(f"{log_time()} : Triggered wg syncconf")
 
 
 def enable_netid(netid, cycle=False):
+    print(f"{log_time()} : enable_netid called for NetID {netid} with cycle {cycle}.")
     if cycle == True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
 
@@ -178,6 +182,7 @@ def enable_netid(netid, cycle=False):
                 }       
             }
         )
+        print(f"{log_time()} : Set is_subscribed to True and cycle{cycle}_start_date to {time.strftime("%Y-%m-%d")}.")
     else:
         subs_col.update_one(
             {"_id": netid},
@@ -186,7 +191,8 @@ def enable_netid(netid, cycle=False):
                     "is_subscribed": True
                 }       
             }
-        )        
+        )
+        print(f"{log_time()} : Set is_subscribed to True.")
 
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
@@ -199,6 +205,7 @@ def enable_netid(netid, cycle=False):
                     break
 
             if not lines[target_line+1].startswith('#'):
+                print(f"{log_time()} : Config file seems to have NetID {netid} already enabled.")
                 return False
 
             for i in range(target_line + 1, target_line + 4):
@@ -211,6 +218,7 @@ def enable_netid(netid, cycle=False):
 
 
 def disable_netid(netid, cycle=False):
+    print(f"{log_time()} : disable_netid called for NetID {netid} with cycle {cycle}.")
     if cycle == True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
 
@@ -223,6 +231,7 @@ def disable_netid(netid, cycle=False):
                 }       
             }
         )
+        print(f"{log_time()} : Set is_subscribed to False and cycle{cycle}_end_date to {time.strftime("%Y-%m-%d")}.")
     else:
         subs_col.update_one(
             {"_id": netid},
@@ -232,6 +241,7 @@ def disable_netid(netid, cycle=False):
                 }       
             }
         )
+        print(f"{log_time()} : Set is_subscribed to False.")
 
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
@@ -244,6 +254,7 @@ def disable_netid(netid, cycle=False):
                     break
 
             if lines[target_line+1].startswith('#'):
+                print(f"{log_time()} : Config file seems to have NetID {netid} already disabled.")
                 return False
 
             for i in range(target_line + 1, target_line + 4):

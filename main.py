@@ -109,6 +109,7 @@ async def db_member_verity():
 
 
 async def sub_verity():
+    print(f"{log_time()} : Subscription verity check triggered")
     today = datetime.now().date()
     subs = subs_col.find()
 
@@ -129,10 +130,12 @@ async def sub_verity():
             channel = discord.utils.get(guild.text_channels, name=channel_name)
 
         if days_since_start == 27:
+            print(f"{log_time()} : Payment reminder sent for {netid}")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** will end today.")
             await channel.send("Use the `!subscribe` to presubscribe for next cycle")
 
         elif days_since_start >= 28:
+            print(f"{log_time()} : NetID {netid} has been auto disabled by sub_verity.")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** has ended.")
             await channel.send("Use the `!subscribe` to subscribe for next cycle")
 
@@ -205,34 +208,37 @@ async def verify_email(ctx):
 
 
 async def verify_member(ctx):
-        if await verify_email(ctx) == True:
-            guild = bot.guilds[0]
-            unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
-            verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
-            member = guild.get_member(ctx.author.id)
+    print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} triggered verification.")
+    if await verify_email(ctx) == True:
+        guild = bot.guilds[0]
+        unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
+        verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
+        member = guild.get_member(ctx.author.id)
 
-            await member.remove_roles(unverified_role)
-            await member.add_roles(verified_role)
+        await member.remove_roles(unverified_role)
+        await member.add_roles(verified_role)
 
-            member_col.update_one(
-                {"_id": ctx.author.id},
-                {
-                    "$set": {
-                        "is_verified": True
-                    }
+        member_col.update_one(
+            {"_id": ctx.author.id},
+            {
+                "$set": {
+                    "is_verified": True
                 }
-            )
+            }
+        )
 
-            category = discord.utils.get(guild.categories, name="Subscriptions")
-            overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                member: discord.PermissionOverwrite(read_messages=True)}
-            channel_name = to_base36(member.id)
-            channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+        category = discord.utils.get(guild.categories, name="Subscriptions")
+        overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            member: discord.PermissionOverwrite(read_messages=True)}
+        channel_name = to_base36(member.id)
+        channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+        print(f"{log_time()} : User verified and channel {channel_name} created for {ctx.author.name} {ctx.author.id}.")
 
-            channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
 
-            await ctx.send(f"Account verification successful! The above NetID has been bound to your account as primary NetID.")
-            await ctx.send(f"Click on the following channel to continue : {channel_link}")
+        channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
+
+        await ctx.send(f"Account verification successful! The above NetID has been bound to your account as primary NetID.")
+        await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
 
 def human_bytes(bytes):
@@ -361,12 +367,14 @@ async def verify_member_cmd(ctx):
 @admin_channel_command()
 async def db_member_verity_cmd(ctx):
     await db_member_verity()
+    print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} manually called DB-Member verity.")
     await ctx.send("DB Member Verity check triggered")
 
 
 @bot.command(name='sub-verity')
 @admin_channel_command()
 async def sub_verity_cmd(ctx):
+    print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} manually called Subscription verity.")
     await sub_verity()
     await ctx.send("Subscription Verity check triggered")
 
@@ -407,6 +415,7 @@ async def remove_netid_cmd(ctx):
             {"$pull": {"netid": netid}}
         )   
 
+        print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} removed NetID {netid} from their account.")
         await ctx.send(f"Netid {netid} has been successfuly removed from the account")
     else:
         await ctx.send("Action cancelled. Have a nice day")
@@ -448,21 +457,26 @@ async def subscribe_cmd(ctx):
         return
 
     trans_doc = trans_col.find_one({'UTR': utr})
+    trans_amount = trans_doc.get('Amount')
 
     if trans_doc == None:
+        print(f"{log_time()} : Non existant UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Transaction not found. Please try again")
         return
     elif trans_doc.get('is_claimed', False) == True:
+        print(f"{log_time()} : Duplicate UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Duplicate UTR ID. What are you trying bro?")
         return
-    elif trans_doc.get('Amount') < 80:
+    elif trans_amount < 80:
+        print(f"{log_time()} : Underpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("You payed less than 80 rupees. Please try again")
         await ctx.send("Please contact admin to refund the transaction.")
         return
-    elif trans_doc.get('Amount') > 80:
+    elif trans_amount > 80:
+        print(f"{log_time()} : Overpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("You payed more than 80 rupees.")
         await ctx.send("Please contact admin to refund the excess.")
-
+    
     trans_col.update_one(
         {'UTR': utr},
         {
@@ -471,15 +485,18 @@ async def subscribe_cmd(ctx):
             }
         },
     )
+    print(f"{log_time()} : UTR {utr} claimed by user {ctx.author.name} {ctx.author.id} for NetID {netid}.")
 
     subs_col.update_one(
         {"_id": netid},
         {'$inc': {"sub_cycle": 1}},         
         upsert=True
     ) 
+    print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {sub_col.find_one({"_id": netid}).get('sub_cycle')}.")
     enable_netid(netid, cycle=True)
 
     if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
+        print(f"{log_time()} : Configs assigned for NetID {netid} by {ctx.author.name} {ctx.author.id}.")
         assign_config(netid)
 
     await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
@@ -503,7 +520,9 @@ async def get_config_cmd(ctx):
         await ctx.send("You didn't make a selection in time.")
         return
 
+    print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} requested configs for NetID {netid}.")
     await ctx.send("Here are the configs:", files=send_config(netid))
+
 
 @bot.command(name='get-usage')
 @sub_channel_command()
@@ -534,6 +553,7 @@ async def get_usage_cmd(ctx):
     cyc_st = sub_doc[f'cycle{cycle}_start_date']
     cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
 
+    print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} requested usage for NetID {netid} Cycle {cycle}.")
     data = get_usage(ipv4, cyc_st, cyc_end)
     download_sum = data[0] + data[2]
     upload_sum = data[1] + data[3]
@@ -565,6 +585,7 @@ async def get_usage_cmd(ctx):
     embed = discord.Embed(title="VPN Usage Stats", description=message, color=discord.Color.red())
     await ctx.send(embed=embed)
 
+
 @bot.command(name='rotate-keys')
 @sub_channel_command()
 async def rotate_keys_cmd(ctx):
@@ -581,6 +602,7 @@ async def rotate_keys_cmd(ctx):
         await ctx.send("You didn't make a selection in time.")
         return
 
+    print(f"{log_time()} : Key rotation triggered by {ctx.author.name} {ctx.author.id} for NetID {netid}.")
     key_rotate(netid)
     await ctx.send(f"Keys for {netid} have been sucessfully rotated")
     await ctx.send ("Use `!get-config` to get the new Wireguard configs")
@@ -598,7 +620,8 @@ async def enable_netid_cmd(ctx):
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
-   
+
+    print(f"{log_time()} : Admin {ctx.author.name} {ctx.author.id} enabled configs of NetID {netid}.")
     if enable_netid(netid) is False:
         await ctx.send(f"{netid} is already enabled.")
     else:
@@ -618,6 +641,7 @@ async def disable_netid_cmd(ctx):
         await ctx.send("You didn't make a selection in time.")
         return
 
+    print(f"{log_time()} : Admin {ctx.author.name} {ctx.author.id} disabled configs of NetID {netid}.")
     if disable_netid(netid) is False:
         await ctx.send(f"{netid} is already disabled.")
     else:
