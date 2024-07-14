@@ -17,9 +17,10 @@
 - Primary and Child NetID's ✅
 - UPI Verification via Termux API ✅
 
-- Subscription Reminder
-- Sub verity  
-- Auto Disable, Enable
+- Subscription Reminder ✅
+- Sub verity ✅
+- Auto Disable, Enable ✅
+- Add presubscribe
 - Add logging to everyhwere
 
 - Pathfinder

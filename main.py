@@ -1,11 +1,13 @@
 import time
+from datetime import datetime
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import SelectOption
 from discord.ui import Select, View
 import random
 import re
 import asyncio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pymongo import MongoClient
 from functools import wraps
 
@@ -30,6 +32,7 @@ db = mongo_client[config.MONGO_DB_NAME]
 member_col = db["memberInfo"]
 trans_col = db["transactionInfo"]
 subs_col = db["subscriptionInfo"]
+bot_col = db["botInfo"]
 
 def log_time():
     return time.strftime("%b %d %H:%M:%S")
@@ -102,6 +105,47 @@ async def db_member_verity():
             )
             member_col.update_one(
                 {"_id": db_member["_id"]}, {"$set": {"in_guild": False}}
+            )
+
+
+async def sub_verity():
+    today = datetime.now().date()
+    subs = subs_col.find()
+
+    for sub in subs:
+        if sub['is_subscribed'] == False:
+            continue
+
+        sub_cycle = sub['sub_cycle']
+        cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
+        cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
+        days_since_start = (today - cycle_start_date).days
+
+        if days_since_start >= 27:
+            guild = bot.guilds[0]
+            netid = sub['_id']
+            discord_id = int(member_col.find_one({"netid": netid}, {"_id": 1})['_id'])
+            channel_name = to_base36(discord_id)
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+
+        if days_since_start == 27:
+            await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** will end today.")
+            await channel.send("Use the `!subscribe` to presubscribe for next cycle")
+
+        elif days_since_start >= 28:
+            await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** has ended.")
+            await channel.send("Use the `!subscribe` to subscribe for next cycle")
+
+            disable_netid(netid)
+
+            subs_col.update_one(
+                {"_id": netid},
+                {
+                    "$set": {   
+                        f"cycle{sub_cycle}_end_date": time.strftime("%Y-%m-%d"),
+                        "is_subscribed": False
+                    }       
+                }
             )
 
 
@@ -278,6 +322,26 @@ async def on_ready():
     print(f"{log_time()} : Logged on as {bot.user}")
 
     await db_member_verity()
+    botinfo = bot_col.find_one({"primary_key": "primary_key"})
+    last_sub_verity_str = botinfo['last_sub_verity']
+    last_sub_verity =  datetime.strptime(last_sub_verity_str, "%Y-%m-%d").date()
+    today = datetime.now().date()
+
+    if today > last_sub_verity:
+        await sub_verity()
+
+    bot_col.update_one(
+        {"primary_key": "primary_key"},
+        {
+            "$set": {
+                "last_sub_verity": time.strftime("%Y-%m-%d")
+            }       
+        }
+    )
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(sub_verity, 'cron', hour=0, minute=0)
+    scheduler.start()
 
 
 @bot.command(name='verify')
@@ -295,6 +359,14 @@ async def verify_member_cmd(ctx):
 async def db_member_verity_cmd(ctx):
     await db_member_verity()
     await ctx.send("DB Member Verity check triggered")
+
+
+@bot.command(name='sub-verity')
+@admin_channel_command()
+async def sub_verity_cmd(ctx):
+    await sub_verity()
+    await ctx.send("Subscription Verity check triggered")
+
 
 @bot.command(name='add-netid')
 @sub_channel_command()
@@ -431,8 +503,8 @@ async def subscribe_cmd(ctx):
         assign_config(netid)
 
     await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
-    await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
-    await ctx.send ("Use `!get-config` to get the Wireguard configs")
+    await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
+    await ctx.send("Use `!get-config` to get the Wireguard configs")
 
 
 @bot.command(name='get-config')
