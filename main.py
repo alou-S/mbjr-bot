@@ -372,7 +372,7 @@ async def subscribe_cmd(ctx):
     await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
     await ctx.send("Please enter UTR (UPI Transaction No.) of your payment:")
 
-    utr = await text_input(ctx, title="UPI Transaction Number", label="Please ent   er UTR", min_length=12, max_length=12, timeout=10)
+    utr = await text_input(ctx, title="UPI Transaction Number", label="Please ent   er UTR", min_length=12, max_length=12, timeout=300)
     if utr is None:
         await ctx.send("No response received. The operation has been cancelled.")
         return

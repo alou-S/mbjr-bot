@@ -15,13 +15,12 @@
       - get-usage
       
 - Primary and Child NetID's ✅
+- UPI Verification via Termux API ✅
+
 - Subscription Reminder
 - Sub verity  
-
-- UPI Verification via Termux API ✅
 - Auto Disable, Enable
-
+- Add logging to everyhwere
 
 - Pathfinder
 - Linux Script
-
