@@ -136,17 +136,7 @@ async def sub_verity():
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** has ended.")
             await channel.send("Use the `!subscribe` to subscribe for next cycle")
 
-            disable_netid(netid)
-
-            subs_col.update_one(
-                {"_id": netid},
-                {
-                    "$set": {   
-                        f"cycle{sub_cycle}_end_date": time.strftime("%Y-%m-%d"),
-                        "is_subscribed": False
-                    }       
-                }
-            )
+            disable_netid(netid, cycle=True)
 
 
 async def verify_email(ctx):
@@ -395,18 +385,7 @@ async def remove_netid_cmd(ctx):
 
     if bool_reply == bool_list[1]:  
         try:
-            disable_netid(netid)
-
-            cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
-            subs_col.update_one(
-                {"_id": netid},
-                {
-                    "$set": {
-                        f"cycle{cycle}_end_date": time.strftime("%Y-%m-%d"),
-                        "is_subscribed": False
-                    }       
-                }
-            )
+            disable_netid(netid, cycle=True)
         except:
             pass
 
@@ -484,20 +463,8 @@ async def subscribe_cmd(ctx):
         {"_id": netid},
         {'$inc': {"sub_cycle": 1}},         
         upsert=True
-    )
-
-    cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
-
-    subs_col.update_one(
-        {"_id": netid},
-        {
-            "$set": {
-                f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
-                "is_subscribed": True
-            }       
-        }
-    )
-    enable_netid(netid)
+    ) 
+    enable_netid(netid, cycle=True)
 
     if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
         assign_config(netid)

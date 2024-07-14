@@ -141,7 +141,29 @@ def key_rotate(netid):
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
 
 
-def enable_netid(netid):
+def enable_netid(netid, cycle=False):
+    if cycle == True:
+        cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
+                    "is_subscribed": True
+                }       
+            }
+        )
+    else:
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    "is_subscribed": True
+                }       
+            }
+        )        
+
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
         
@@ -164,7 +186,29 @@ def enable_netid(netid):
         f.truncate()
 
 
-def disable_netid(netid):
+def disable_netid(netid, cycle=False):
+    if cycle == True:
+        cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    f"cycle{cycle}_end_date": time.strftime("%Y-%m-%d"),
+                    "is_subscribed": False
+                }       
+            }
+        )
+    else:
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    "is_subscribed": False
+                }       
+            }
+        )
+
     with open(config.WG_CONF, 'r+') as f:
         lines = f.readlines()
         
