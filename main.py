@@ -106,7 +106,6 @@ async def db_member_verity():
 
 
 async def verify_email(ctx):
-
     if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
         ctx.send("We are currently at max subscriptions! No new verificaitons can be taken.\nSorry for the inconvienice.")
         return
@@ -117,64 +116,57 @@ async def verify_email(ctx):
         await ctx.send("You have failed to verify too many times. Please contact admin.")
         return False
     
-    await ctx.send("Please send SRM Net ID")
+    await ctx.send("Please enter SRM Net ID")
 
-    def check(m):
-        return m.author == ctx.author and m.channel == ctx.channel
+    netid = await text_input(ctx, title="SRM NetID", label="Please enter NetID", min_length=6, max_length=6)
+    if otp_msg is None:
+        await ctx.send("No response received. The operation has been cancelled.")
+        return
 
-    try:
-        netid_msg = await bot.wait_for('message', check=check, timeout=60.0)
-        netid = netid_msg.content.lower()
+    if not re.match(r'^[a-z]{2}\d{4}$', netid):
+        await ctx.send("Invalid NetID. Please try again.")
+        return False
+    member_col.update_one(
+        {"_id": ctx.author.id},
+        {'$inc': {"verify_fail_count": 1}}
+    )
 
-        # Validate NetID format
-        if not re.match(r'^[a-z]{2}\d{4}$', netid):
-            await ctx.send("Invalid NetID. Please try again.")
-            return False
+    if member_col.find_one({"netid": netid}):
+        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
+        await ctx.send("Invalid NetID. Please try again.")
+        return False
+
+    otp = str(random.randint(100000, 999999))
+    response = send_otp(otp, netid)
+
+    print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid} with response {response.text} ({response.status_code}).")
+    await ctx.send(f"An OTP has been sent to the email associated with {netid}. Please send the 6-digit OTP")
+    otp_msg = await text_input(ctx, title="OTP Verification", label="Please enter OTP", min_length=6, max_length=6, timeout=300)
+    if otp_msg is None:
+        await ctx.send("No response received. The operation has been cancelled.")
+        return
+
+    if otp_msg == otp:
+        member_col.update_one(
+            {"_id": ctx.author.id},
+            {'$set': {"verify_fail_count": 0}}
+        )
 
         member_col.update_one(
             {"_id": ctx.author.id},
-            {'$inc': {"verify_fail_count": 1}}
+            {
+                "$push": {
+                    "netid": netid
+                }
+            }
         )
 
-        if member_col.find_one({"netid": netid}):
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
-            await ctx.send("Invalid NetID. Please try again.")
-            return False
-
-        otp = str(random.randint(100000, 999999))
-        response = send_otp(otp, netid)
-
-        print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid} with response {response.text} ({response.status_code}).")
-        await ctx.send(f"An OTP has been sent to the email associated with {netid}. Please send the 6-digit OTP")
-        otp_msg = await bot.wait_for('message', check=check, timeout=300.0)
-
-        if otp_msg.content == otp:
-            member_col.update_one(
-                {"_id": ctx.author.id},
-                {'$set': {"verify_fail_count": 0}}
-            )
-
-            member_col.update_one(
-                {"_id": ctx.author.id},
-                {
-                    "$push": {
-                        "netid": netid
-                    }
-                }
-            )
-
-            print(f"{log_time()} : NetID {netid} verified with Member {ctx.author.name} {ctx.author.id}.")
-            await ctx.send(f"OTP has been verified for NetID {netid}")
-            return True
-        else:
-            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
-            await ctx.send("Incorrect OTP. Verification failed. Please try again.")
-            return False
-    
-    except asyncio.TimeoutError:
-        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification timeout.")
-        print(f"{log_time()} : ")
-        await ctx.send("Verification timed out. Please try again.")
+        print(f"{log_time()} : NetID {netid} verified with Member {ctx.author.name} {ctx.author.id}.")
+        await ctx.send(f"OTP has been verified for NetID {netid}")
+        return True
+    else:
+        print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
+        await ctx.send("Incorrect OTP. Verification failed. Please try again.")
         return False
 
 
@@ -378,25 +370,17 @@ async def subscribe_cmd(ctx):
     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
     await ctx.send(embed=embed)
     await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
-    await ctx.send("Please enter UTR (UPI Transaction No). of your payment:")
+    await ctx.send("Please enter UTR (UPI Transaction No.) of your payment:")
 
-    def check(m):
-        return m.author == ctx.author and m.channel == ctx.channel
-
-    try:
-        reply = await bot.wait_for('message', check=check, timeout=120.0)
-        utr = int(reply.content)
-
-        if len(str(utr)) != 12:
-            await ctx.send("Invalid UTR (Should be 12 digits). Please try again.")
-            return
-
-    except ValueError:
-        await ctx.send("Content sent was not a integer. Please try again.")
+    utr = await text_input(ctx, title="UPI Transaction Number", label="Please ent   er UTR", min_length=12, max_length=12, timeout=10)
+    if utr is None:
+        await ctx.send("No response received. The operation has been cancelled.")
         return
 
-    except asyncio.TimeoutError:
-        await ctx.send("Timed out waiting for reply. Please try again.")
+    try:
+        utr = int(utr)
+    except ValueError:
+        await ctx.send("Content sent was not a integer. Please try again.")
         return
 
     trans_doc = trans_col.find_one({'UTR': utr})
@@ -607,6 +591,67 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
     
     await message.edit(content=f"Selected: {selected_item}", view=None)
     return selected_item
+
+
+async def text_input(ctx, title, label, placeholder=None, min_length=1, max_length=100, timeout=30):
+    class TextInputModal(discord.ui.Modal):
+        def __init__(self):
+            super().__init__(title=title)
+            self.text_input = discord.ui.TextInput(
+                label=label[:45],
+                placeholder=placeholder,
+                min_length=min_length,
+                max_length=max_length
+            )
+            self.add_item(self.text_input)
+
+        async def on_submit(self, interaction: discord.Interaction):
+            await interaction.response.defer()
+            self.interaction = interaction
+            self.stop()
+
+    class ResponseView(discord.ui.View):
+        def __init__(self):
+            super().__init__()
+            self.value = None
+
+        @discord.ui.button(label="Click to Respond", style=discord.ButtonStyle.blurple)
+        async def respond(self, interaction: discord.Interaction, button: discord.ui.Button):
+            modal = TextInputModal()
+            await interaction.response.send_modal(modal)
+            await modal.wait()
+            if modal.text_input.value:
+                self.value = modal.text_input.value
+                self.stop()
+
+    view = ResponseView()
+    modal_message = await ctx.send("Please click the button below to provide your input.", view=view)
+    timer_message = await ctx.send(f"Time remaining: {timeout} seconds")
+    
+    end_time = asyncio.get_event_loop().time() + timeout
+
+    async def update_timer():
+        while True:
+            remaining_time = max(0, round(end_time - asyncio.get_event_loop().time()))
+            if remaining_time <= 0:
+                await timer_message.edit(content="The response time has expired.")
+                break
+            await timer_message.edit(content=f"Time remaining: {remaining_time} seconds")
+            await asyncio.sleep(2.5)
+
+    update_task = asyncio.create_task(update_timer())
+
+    try:
+        await asyncio.wait_for(view.wait(), timeout=timeout)
+        update_task.cancel()
+        await modal_message.edit(content=f"Submitted response: {view.value}", view=None)
+        await timer_message.delete()
+        return view.value
+    except asyncio.TimeoutError:
+        update_task.cancel()
+        await modal_message.edit(content="The response time has expired. No response was submitted.", view=None)
+        await timer_message.delete()
+        return None
 
 
 bot.run(config.DISCORD_BOT_TOKEN)
