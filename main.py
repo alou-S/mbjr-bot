@@ -506,6 +506,7 @@ async def subscribe_cmd(ctx):
 
     await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
     await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
+    await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
     await ctx.send("Use `!get-config` to get the Wireguard configs")
 
 
