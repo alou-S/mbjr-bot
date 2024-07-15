@@ -9,9 +9,18 @@ Full Details: <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>
 """
 
 
-dm_cmds = """DM Commands"""
+dm_cmds = """`!verify`:\t To begin verification of your account
+
+`!help`:\t To get this dialogue"""
 
 
-channel_cmds = """ Channel Commands """
+channel_cmds = """`!subscribe`:\t Start a subscription on one of your NetID's
+`!get-config`:\t Get config file for one of your subscriptions
+`!get-usage`:\t Get usage info for your subscriptions
+`!add-netid`:\t Add a new NetID to your account
+`!remove-netid`:\t Remove a NetID from your account
+`!rotate-keys`:\t Rotate the config keys for one of your subscriptions
+
+`!help` : To get this dialogue"""
 
 admin_cmds = """ Admin Commands """

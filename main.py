@@ -241,6 +241,10 @@ async def verify_member(ctx):
         await ctx.send("Account verification successful! The above NetID has been bound to your account as primary NetID.")
         await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
+        embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
+        await channel.send(embed=embed)
+        await channel.send("Use `!subscribe` to continue with getting subscrption")
+
 
 def human_bytes(bytes):
     if bytes < 1024:
