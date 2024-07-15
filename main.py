@@ -10,7 +10,7 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pymongo import MongoClient
 from functools import wraps
-from textwarp import dedent
+from textwrap import dedent
 
 import config
 import messages

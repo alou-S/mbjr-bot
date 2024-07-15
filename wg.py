@@ -12,11 +12,15 @@ import os
 import time
 import requests
 
-from main import log_time
 
 mongo_client = MongoClient(config.MONGO_CLIENT)
 db = mongo_client[config.MONGO_DB_NAME]
 subs_col = db["subscriptionInfo"]
+
+
+def log_time():
+    return time.strftime("%b %d %H:%M:%S")
+
 
 def wg_genkey():
     priv_key = PrivateKey.generate()
