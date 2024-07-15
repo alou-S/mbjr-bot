@@ -115,6 +115,7 @@ def send_config(netid):
     [Peer]
     PublicKey = {config.WG_SERVER_PUBKEY}
     AllowedIPs = {config.WG_AIPS}
+    Endpoint = 127.0.0.1:51280
     PersistentKeepalive = 25\
     """)
 
@@ -128,6 +129,7 @@ def send_config(netid):
     [Peer]
     PublicKey = {config.WG_SERVER_PUBKEY}
     AllowedIPs = {config.WG_AIPS}
+    Endpoint = 127.0.0.1:51280
     PersistentKeepalive = 25\
     """)
 
