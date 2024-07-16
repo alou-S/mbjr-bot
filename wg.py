@@ -170,7 +170,7 @@ def key_rotate(netid):
         f.seek(0)
         f.write(new_content)
 
-    print(f"{log_time()} : Rotated to Publick Key {new_pub_key_1} {new_pub_key_2} for NetID {netid}")
+    print(f"{log_time()} : Rotated to Public Key {new_pub_key_1} {new_pub_key_2} for NetID {netid}")
     subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
     print(f"{log_time()} : Triggered wg syncconf")
 

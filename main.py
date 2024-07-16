@@ -133,7 +133,7 @@ async def sub_verity():
         if days_since_start == 27:
             print(f"{log_time()} : Payment reminder sent for {netid}")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** will end today.")
-            await channel.send("Use the `!subscribe` to presubscribe for next cycle")
+            await channel.send("Use the `!subscribe` to pre-subscribe for next cycle")
 
         elif days_since_start >= 28:
             print(f"{log_time()} : NetID {netid} has been auto disabled by sub_verity.")
@@ -145,7 +145,7 @@ async def sub_verity():
 
 async def verify_email(ctx):
     if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
-        ctx.send("We are currently at max subscriptions! No new verificaitons can be taken.\nSorry for the inconvienice.")
+        ctx.send("We are currently at max subscriptions! No new verifications can be taken.\nSorry for the inconvenience.")
         return
 
     member_doc = member_col.find_one({"_id": ctx.author.id})
@@ -243,7 +243,7 @@ async def verify_member(ctx):
 
         embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
         await channel.send(embed=embed)
-        await channel.send("Use `!subscribe` to continue with getting subscrption")
+        await channel.send("Use `!subscribe` to continue with getting subscription")
 
 
 def human_bytes(bytes):
@@ -388,7 +388,7 @@ async def sub_verity_cmd(ctx):
 @sub_channel_command()
 async def add_netid_cmd(ctx):
     if await verify_email(ctx) is True:
-        ctx.send("The above netid has been sucessfully added to your account.")
+        ctx.send("The above netid has been successfully added to your account.")
 
 
 @bot.command(name='remove-netid')
@@ -421,7 +421,7 @@ async def remove_netid_cmd(ctx):
         )
 
         print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} removed NetID {netid} from their account.")
-        await ctx.send(f"Netid {netid} has been successfuly removed from the account")
+        await ctx.send(f"Netid {netid} has been successfully removed from the account")
     else:
         await ctx.send("Action cancelled. Have a nice day")
 
@@ -430,7 +430,7 @@ async def remove_netid_cmd(ctx):
 @sub_channel_command()
 async def subscribe_cmd(ctx):
     if subs_col.count_documents({"is_subscribed": True}) > config.MAX_SUBS:
-        ctx.send("We are currently at max subscriptions! No new subscription can be taken.\nSorry for the inconvienice.")
+        ctx.send("We are currently at max subscriptions! No new subscription can be taken.\nSorry for the inconvenience.")
         return
 
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
@@ -448,9 +448,9 @@ async def subscribe_cmd(ctx):
     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
     await ctx.send(embed=embed)
     await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
-    await ctx.send("Please enter UTR (UPI Transaction No.) of your payment:")
+    await ctx.send("Please enter UTR (UPI Transaction ID) of your payment:")
 
-    utr = await text_input(ctx, title="UPI Transaction Number", label="Please ent   er UTR", min_length=12, max_length=12, timeout=300)
+    utr = await text_input(ctx, title="UPI Transaction ID", label="Please enter UTR", min_length=12, max_length=12, timeout=300)
     if utr is None:
         await ctx.send("No response received. The operation has been cancelled.")
         return
@@ -465,7 +465,7 @@ async def subscribe_cmd(ctx):
     trans_amount = trans_doc.get('Amount')
 
     if trans_doc is None:
-        print(f"{log_time()} : Non existant UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
+        print(f"{log_time()} : Non existent UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Transaction not found. Please try again")
         return
     elif trans_doc.get('is_claimed', False) is True:
@@ -504,7 +504,7 @@ async def subscribe_cmd(ctx):
         print(f"{log_time()} : Configs assigned for NetID {netid} by {ctx.author.name} {ctx.author.id}.")
         assign_config(netid)
 
-    await ctx.send(f"Transaction Veirifed\nVPN subscription has been enabled for {netid}.")
+    await ctx.send(f"Transaction Verified\nVPN subscription has been enabled for {netid}.")
     await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
     await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
     await ctx.send("Use `!get-config` to get the Wireguard configs")
@@ -610,7 +610,7 @@ async def rotate_keys_cmd(ctx):
 
     print(f"{log_time()} : Key rotation triggered by {ctx.author.name} {ctx.author.id} for NetID {netid}.")
     key_rotate(netid)
-    await ctx.send(f"Keys for {netid} have been sucessfully rotated")
+    await ctx.send(f"Keys for {netid} have been successfully rotated")
     await ctx.send ("Use `!get-config` to get the new Wireguard configs")
 
 
