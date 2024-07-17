@@ -278,6 +278,6 @@ def get_usage(ipv4, cyc_st, cyc_end):
     rx_bytes_1 = es_query(ipv4_addr_1, "server", "client", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "server", cyc_st, cyc_end)
     tx_bytes_1 = es_query(ipv4_addr_1, "server", "server", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "client", cyc_st, cyc_end)
     rx_bytes_2 = es_query(ipv4_addr_2, "server", "client", cyc_st, cyc_end) + es_query(ipv4_addr_2, "client", "server", cyc_st, cyc_end)
-    tx_bytes_2 = es_query(ipv4_addr_2, "server", "server", cyc_st, cyc_end) + es_query(ipv4_addr_1, "client", "client", cyc_st, cyc_end)
+    tx_bytes_2 = es_query(ipv4_addr_2, "server", "server", cyc_st, cyc_end) + es_query(ipv4_addr_2, "client", "client", cyc_st, cyc_end)
 
     return [rx_bytes_1, tx_bytes_1, rx_bytes_2, tx_bytes_2]
