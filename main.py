@@ -486,7 +486,8 @@ async def subscribe_cmd(ctx):
         {'UTR': utr},
         {
             "$set": {
-                "is_claimed": True
+                "is_claimed": True,
+                "claimed_by": [netid, ctx.user.name, ctx.user.id]
             }
         },
     )
