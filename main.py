@@ -487,7 +487,7 @@ async def subscribe_cmd(ctx):
         {
             "$set": {
                 "is_claimed": True,
-                "claimed_by": [netid, ctx.author.name, ctx.author.id]
+                "claimed_by": [netid, ctx.author.name, str(ctx.author.id)]
             }
         },
     )
