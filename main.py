@@ -210,40 +210,53 @@ async def verify_email(ctx):
 
 async def verify_member(ctx):
     print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} triggered verification.")
-    if await verify_email(ctx) is True:
-        guild = bot.guilds[0]
-        unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
-        verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
-        member = guild.get_member(ctx.author.id)
+    if await verify_email(ctx) is not True:
+        return
 
-        await member.remove_roles(unverified_role)
-        await member.add_roles(verified_role)
+    guild = bot.guilds[0]
+    unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
+    verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
+    member = guild.get_member(ctx.author.id)
 
-        member_col.update_one(
-            {"_id": ctx.author.id},
-            {
-                "$set": {
-                    "is_verified": True
-                }
+    await member.remove_roles(unverified_role)
+    await member.add_roles(verified_role)
+
+    member_col.update_one(
+        {"_id": ctx.author.id},
+        {
+            "$set": {
+                "is_verified": True
             }
-        )
+        }
+    )
 
-        category = discord.utils.get(guild.categories, name="Subscriptions")
-        overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            member: discord.PermissionOverwrite(read_messages=True)}
-        channel_name = to_base36(member.id)
-        channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
-        print(f"{log_time()} : User verified and channel {channel_name} created for {ctx.author.name} {ctx.author.id}.")
+    count = 1
+    while True:
+        category = discord.utils.get(guild.categories, name=f'Subscriptions{count:02d}')
+        if category is None:
+            category = await guild.create_category(name=f'Subscriptions{count:02d}')
+            break
+        elif len(category.channels) > 49:
+            count+=1
+        else:
+            break
+
+        
+    overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        member: discord.PermissionOverwrite(read_messages=True)}
+    channel_name = to_base36(member.id)
+    channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+    print(f"{log_time()} : User verified and channel {channel_name} created for {ctx.author.name} {ctx.author.id}.")
 
 
-        channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
+    channel_link = f"https://discord.com/channels/{guild.id}/{channel.id}"
 
-        await ctx.send("Account verification successful! The above NetID has been bound to your account as primary NetID.")
-        await ctx.send(f"Click on the following channel to continue : {channel_link}")
+    await ctx.send("Account verification successful! The above NetID has been bound to your account as primary NetID.")
+    await ctx.send(f"Click on the following channel to continue : {channel_link}")
 
-        embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
-        await channel.send(embed=embed)
-        await channel.send("Use `!subscribe` to continue with getting subscription")
+    embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
+    await channel.send(embed=embed)
+    await channel.send("Use `!subscribe` to continue with getting subscription")
 
 
 def human_bytes(bytes):
@@ -289,7 +302,7 @@ def sub_channel_command():
     def decorator(func):
         @wraps(func)
         async def wrapper(ctx, *args, **kwargs):
-            if ctx.guild and ctx.channel.category and ctx.channel.category.name == 'Subscriptions':
+            if ctx.guild and ctx.channel.category and ctx.channel.category.name.startswith('Subscriptions'):
                 return await func(ctx, *args, **kwargs)
             else:
                 log_invalid_command(ctx)
@@ -663,7 +676,7 @@ async def help_cmd(ctx):
         embed = discord.Embed(title="Admin Commands", description=messages.admin_cmds, color=discord.Color.red())
         await ctx.send(embed=embed)
 
-    elif ctx.guild and ctx.channel.category and ctx.channel.category.name == 'Subscriptions':
+    elif ctx.guild and ctx.channel.category and ctx.channel.category.name.startswith('Subscriptions'):
         embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
         await ctx.send(embed=embed)
 
