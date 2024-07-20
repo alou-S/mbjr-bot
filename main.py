@@ -475,8 +475,6 @@ async def subscribe_cmd(ctx):
         return
 
     trans_doc = trans_col.find_one({'UTR': utr})
-    trans_amount = trans_doc.get('Amount')
-
     if trans_doc is None:
         print(f"{log_time()} : Non existent UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Transaction not found. Please try again")
@@ -485,7 +483,9 @@ async def subscribe_cmd(ctx):
         print(f"{log_time()} : Duplicate UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("Duplicate UTR ID. What are you trying bro?")
         return
-    elif trans_amount < 80:
+
+    trans_amount = trans_doc.get('Amount')
+    if trans_amount < 80:
         print(f"{log_time()} : Underpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send("You payed less than 80 rupees. Please try again")
         await ctx.send("Please contact admin to refund the transaction.")
