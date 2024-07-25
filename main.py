@@ -70,7 +70,7 @@ async def db_member_verity():
                 if "is_verified" not in db_member or db_member["is_verified"] is False:
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
-                    await member.send("Use `!verify` to begin verification")
+                    await member.send("Send `!verify` to begin verification")
             else:
                 member_col.update_one(
                     {"_id": member.id},
@@ -95,7 +95,7 @@ async def db_member_verity():
 
             embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
             await member.send(embed=embed)
-            await member.send("Use `!verify` to begin verification")
+            await member.send("Send `!verify` to begin verification")
 
     # Check if members in db still exist in guild.
     db_members = member_col.find({"in_guild": True})
@@ -133,12 +133,12 @@ async def sub_verity():
         if days_since_start == 27:
             print(f"{log_time()} : Payment reminder sent for {netid}")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** will end today.")
-            await channel.send("Use the `!subscribe` to pre-subscribe for next cycle")
+            await channel.send("Send `!subscribe` to pre-subscribe for next cycle")
 
         elif days_since_start >= 28:
             print(f"{log_time()} : NetID {netid} has been auto disabled by sub_verity.")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** has ended.")
-            await channel.send("Use the `!subscribe` to subscribe for next cycle")
+            await channel.send("Send `!subscribe` to subscribe for next cycle")
 
             disable_netid(netid, cycle=True)
 
@@ -256,7 +256,7 @@ async def verify_member(ctx):
 
     embed = discord.Embed(title="Channel Commands", description=messages.channel_cmds, color=discord.Color.blue())
     await channel.send(embed=embed)
-    await channel.send("Use `!subscribe` to continue with getting subscription")
+    await channel.send("Send `!subscribe` to continue with getting subscription")
 
 
 def human_bytes(bytes):
@@ -335,7 +335,7 @@ async def on_member_join(member):
     if "is_verified" not in member_doc or member_doc["is_verified"] is False:
         embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
         await member.send(embed=embed)
-        await member.send("Use `!verify` to begin verification")
+        await member.send("Send `!verify` to begin verification")
 
 
 @bot.event
@@ -521,7 +521,7 @@ async def subscribe_cmd(ctx):
     await ctx.send(f"Transaction Verified\nVPN subscription has been enabled for {netid}.")
     await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
     await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
-    await ctx.send("Use `!get-config` to get the Wireguard configs")
+    await ctx.send("Send `!get-config` to get the Wireguard configs")
 
 
 @bot.command(name='get-config')
@@ -625,7 +625,7 @@ async def rotate_keys_cmd(ctx):
     print(f"{log_time()} : Key rotation triggered by {ctx.author.name} {ctx.author.id} for NetID {netid}.")
     key_rotate(netid)
     await ctx.send(f"Keys for {netid} have been successfully rotated")
-    await ctx.send ("Use `!get-config` to get the new Wireguard configs")
+    await ctx.send ("Send `!get-config` to get the new Wireguard configs")
 
 
 @bot.command(name='enable-netid')
