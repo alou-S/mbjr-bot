@@ -474,6 +474,24 @@ async def subscribe_cmd(ctx):
         await ctx.send("Content sent was not a integer. Please try again.")
         return
 
+    overage = 0
+    sub_doc = subs_col.find_one({"_id": netid})
+
+    if sub_doc is not None:
+        sub_cycle = sub_doc['sub_cycle']
+        ipv4 = sub_doc['ipv4_addr']
+        cyc_st = sub_doc[f'cycle{cycle}_start_date']
+        cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
+
+        data = get_usage(ipv4, cyc_st, cyc_end)
+        download_sum = data[0] + data[2]
+        upload_sum = data[1] + data[3]
+
+        if max(download_sum, upload_sum) > config.VPN_MAX_DATA * 1073741824:
+            overage = round(((max(download_sum, upload_sum) / (config.VPN_MAX_DATA * 1073741824)) * 80)) - 80
+
+    amount = 80 + overage
+
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
         print(f"{log_time()} : Non existent UTR {utr} used by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
@@ -485,14 +503,14 @@ async def subscribe_cmd(ctx):
         return
 
     trans_amount = trans_doc.get('Amount')
-    if trans_amount < 80:
-        print(f"{log_time()} : Underpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
-        await ctx.send("You payed less than 80 rupees. Please try again")
+    if trans_amount < amount:
+        print(f"{log_time()} : Underpayment of Rs. {trans_amount} instead of Rs. {amount} with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
+        await ctx.send(f"You payed less than {amount} rupees. Please try again")
         await ctx.send("Please contact admin to refund the transaction.")
         return
-    elif trans_amount > 80:
-        print(f"{log_time()} : Overpayment of Rs. {trans_amount} instead of Rs. 80 with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
-        await ctx.send("You payed more than 80 rupees.")
+    elif trans_amount > amount:
+        print(f"{log_time()} : Overpayment of Rs. {trans_amount} instead of Rs. {amount} with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
+        await ctx.send(f"You payed more than {amount} rupees.")
         await ctx.send("Please contact admin to refund the excess.")
 
     trans_col.update_one(
