@@ -118,6 +118,8 @@ async def sub_verity():
         if sub['is_subscribed'] is False:
             continue
 
+        presub = 'sub_cycle' in sub and sub['sub_cycle']
+
         sub_cycle = sub['sub_cycle']
         cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
         cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
@@ -130,17 +132,26 @@ async def sub_verity():
             channel_name = to_base36(discord_id)
             channel = discord.utils.get(guild.text_channels, name=channel_name)
 
-        if days_since_start == 27:
+        if days_since_start == 27 and not presub:
             print(f"{log_time()} : Payment reminder sent for {netid}")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** will end today.")
             await channel.send("Send `!subscribe` to pre-subscribe for next cycle")
 
-        elif days_since_start >= 28:
+        elif days_since_start >= 28 and not presub:
             print(f"{log_time()} : NetID {netid} has been auto disabled by sub_verity.")
             await channel.send(f"<@{discord_id}> The subscription for NetID **{netid}** has ended.")
             await channel.send("Send `!subscribe` to subscribe for next cycle")
 
             disable_netid(netid, cycle=True)
+
+        elif days_since_start >= 28 and presub:
+            subs_col.update_one(
+            {"_id": netid},
+            {'$inc': {"sub_cycle": 1}},
+            {'$set': {"presub": False}},
+            )
+            print(f"{log_time()} : NetID {netid} has been auto automatically resubscribed by sub_verity.")
+            await channel.send(f"<@{discord_id}> NetID **{netid}** has automatically been resubscribed.")
 
 
 async def verify_email(ctx):
@@ -447,13 +458,29 @@ async def subscribe_cmd(ctx):
         return
 
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
-    unsub_netid = [netid for netid in netid_list if not subs_col.find_one({'_id': netid, 'is_subscribed': True})]
+    presub_netid = []
 
-    if not unsub_netid:
+    for sub in subs_col.find():
+        if sub['is_subscribed'] is False:
+            continue
+        
+        today = datetime.now().date()
+        sub_cycle = sub['sub_cycle']
+        cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
+        cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
+        days_since_start = (today - cycle_start_date).days
+
+        if days_since_start == 27:
+            presub_netid.append(sub['_id'])
+    
+    unsub_netid = [netid for netid in netid_list if not subs_col.find_one({'_id': netid, 'is_subscribed': True})]
+    netid_list = [presub_netid + unsub_netid]
+
+    if not netid_list:
         await ctx.send("All your NetIDs are already subscribed.")
         return
 
-    netid = await dropdown_select(ctx, unsub_netid, prompt="Select which netid to activate")
+    netid = await dropdown_select(ctx, netid_list, prompt="Select which netid to activate")
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
@@ -480,7 +507,7 @@ async def subscribe_cmd(ctx):
     if sub_doc is not None:
         sub_cycle = sub_doc['sub_cycle']
         ipv4 = sub_doc['ipv4_addr']
-        cyc_st = sub_doc[f'cycle{cycle}_start_date']
+        cyc_st = sub_doc[f'cycle{sub_cycle}_start_date']
         cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
 
         data = get_usage(ipv4, cyc_st, cyc_end)
@@ -524,22 +551,36 @@ async def subscribe_cmd(ctx):
     )
     print(f"{log_time()} : UTR {utr} claimed by user {ctx.author.name} {ctx.author.id} for NetID {netid}.")
 
-    subs_col.update_one(
-        {"_id": netid},
-        {'$inc': {"sub_cycle": 1}},         
-        upsert=True
-    )
-    print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {subs_col.find_one({"_id": netid}).get('sub_cycle')}.")
-    enable_netid(netid, cycle=True)
+    if netid in presub_netid:
+        subs_col.update_one(
+            {"_id": netid},
+            {
+                "$set": {
+                    f"cycle{sub_cycle+1}_start_date": (datetime.date.today() + datetime.timedelta(days=1)).strftime("%Y-%m-%d"),
+                    "presub": True,
+                }
+            },
+        )
 
-    if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
-        print(f"{log_time()} : Configs assigned for NetID {netid} by {ctx.author.name} {ctx.author.id}.")
-        assign_config(netid)
+        await ctx.send(f"Transaction Verified\nYou have presubscribed the next cycle for {netid}.")
+        await ctx.send(f"Next subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
+    else:
+        subs_col.update_one(
+            {"_id": netid},
+            {'$inc': {"sub_cycle": 1}},         
+            upsert=True
+        )
+        print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {subs_col.find_one({"_id": netid}).get('sub_cycle')}.")
+        enable_netid(netid, cycle=True)
 
-    await ctx.send(f"Transaction Verified\nVPN subscription has been enabled for {netid}.")
-    await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
-    await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
-    await ctx.send("Send `!get-config` to get the Wireguard configs")
+        if 'ipv4_addr' not in subs_col.find_one({"_id": netid}):
+            print(f"{log_time()} : Configs assigned for NetID {netid} by {ctx.author.name} {ctx.author.id}.")
+            assign_config(netid)
+
+        await ctx.send(f"Transaction Verified\nVPN subscription has been enabled for {netid}.")
+        await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
+        await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
+        await ctx.send("Send `!get-config` to get the Wireguard configs")
 
 
 @bot.command(name='get-config')
