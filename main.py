@@ -118,7 +118,7 @@ async def sub_verity():
         if sub['is_subscribed'] is False:
             continue
 
-        presub = 'sub_cycle' in sub and sub['sub_cycle']
+        presub = 'presub' in sub and sub['presub']
 
         sub_cycle = sub['sub_cycle']
         cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
