@@ -474,7 +474,7 @@ async def subscribe_cmd(ctx):
             presub_netid.append(sub['_id'])
     
     unsub_netid = [netid for netid in netid_list if not subs_col.find_one({'_id': netid, 'is_subscribed': True})]
-    netid_list = [presub_netid + unsub_netid]
+    netid_list = presub_netid + unsub_netid
 
     if not netid_list:
         await ctx.send("All your NetIDs are already subscribed.")
