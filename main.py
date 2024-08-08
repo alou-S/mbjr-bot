@@ -556,7 +556,7 @@ async def subscribe_cmd(ctx):
             {"_id": netid},
             {
                 "$set": {
-                    f"cycle{sub_cycle+1}_start_date": (datetime.date.today() + datetime.timedelta(days=1)).strftime("%Y-%m-%d"),
+                    f"cycle{sub_cycle+1}_start_date": (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d"),
                     "presub": True,
                 }
             },
