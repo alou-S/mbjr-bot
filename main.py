@@ -147,8 +147,10 @@ async def sub_verity():
         elif days_since_start >= 28 and presub:
             subs_col.update_one(
             {"_id": netid},
-            {'$inc': {"sub_cycle": 1}},
-            {'$set': {"presub": False}},
+            {
+                '$inc': {"sub_cycle": 1},
+                '$set': {"presub": False}
+            },
             )
             print(f"{log_time()} : NetID {netid} has been auto automatically resubscribed by sub_verity.")
             await channel.send(f"<@{discord_id}> NetID **{netid}** has automatically been resubscribed.")
