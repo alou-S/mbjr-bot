@@ -405,6 +405,7 @@ async def db_member_verity_cmd(ctx):
 async def sub_verity_cmd(ctx):
     print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} manually called Subscription verity.")
     await sub_verity()
+    await ctx.send("Subscription Verity check triggered")
 
 
 @bot.command(name='add-netid')
