@@ -487,22 +487,6 @@ async def subscribe_cmd(ctx):
         await ctx.send("You didn't make a selection in time.")
         return
 
-    embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
-    await ctx.send(embed=embed)
-    await ctx.send(f"Please send Rs. 80 to {config.UPI_ID}")
-    await ctx.send("Please enter UTR (UPI Transaction ID) of your payment:")
-
-    utr = await text_input(ctx, title="UPI Transaction ID", label="Please enter UTR", min_length=12, max_length=12, timeout=300)
-    if utr is None:
-        await ctx.send("No response received. The operation has been cancelled.")
-        return
-
-    try:
-        utr = int(utr)
-    except ValueError:
-        await ctx.send("Content sent was not a integer. Please try again.")
-        return
-
     overage = 0
     sub_doc = subs_col.find_one({"_id": netid})
 
@@ -520,6 +504,22 @@ async def subscribe_cmd(ctx):
             overage = round(((max(download_sum, upload_sum) / (config.VPN_MAX_DATA * 1073741824)) * 80)) - 80
 
     amount = 80 + overage
+
+    embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
+    await ctx.send(embed=embed)
+    await ctx.send(f"Please send Rs. {amount} to {config.UPI_ID}")
+    await ctx.send("Please enter UTR (UPI Transaction ID) of your payment:")
+
+    utr = await text_input(ctx, title="UPI Transaction ID", label="Please enter UTR", min_length=12, max_length=12, timeout=300)
+    if utr is None:
+        await ctx.send("No response received. The operation has been cancelled.")
+        return
+
+    try:
+        utr = int(utr)
+    except ValueError:
+        await ctx.send("Content sent was not a integer. Please try again.")
+        return
 
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
@@ -562,7 +562,7 @@ async def subscribe_cmd(ctx):
                     "presub": True,
                 }
             },
-        )
+        )   
 
         await ctx.send(f"Transaction Verified\nYou have presubscribed the next cycle for {netid}.")
         await ctx.send(f"Next subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
