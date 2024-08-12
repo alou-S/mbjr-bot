@@ -596,6 +596,10 @@ async def get_config_cmd(ctx):
         if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
             sub_netid.append(netid)
 
+    if not sub_netid:
+        await ctx.send("You have no subscribed NetID's.")
+        return
+
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get")
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
@@ -613,8 +617,12 @@ async def get_usage_cmd(ctx):
 
     for netid in netid_list:
         sub_doc = subs_col.find_one({'_id': netid})
-        if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
+        if sub_doc is not None and 'sub_cycle' in sub_doc:
             sub_netid.append(netid)
+
+    if not sub_netid:
+        await ctx.send("You have no previously or currently subscribed NetID's.")
+        return
 
     netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get status for")
     if netid is None:
