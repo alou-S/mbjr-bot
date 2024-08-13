@@ -462,10 +462,11 @@ async def subscribe_cmd(ctx):
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
     presub_netid = []
 
-    for sub in subs_col.find():
-        if sub['is_subscribed'] is False:
+    for netid in netid_list:
+        if subs_col.find_one({'_id': netid, 'is_subscribed': False}):
             continue
         
+        sub = subs_col.find_one({'_id': netid})
         today = datetime.now().date()
         sub_cycle = sub['sub_cycle']
         cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
