@@ -154,6 +154,15 @@ async def sub_verity():
             )
             print(f"{log_time()} : NetID {netid} has been auto automatically resubscribed by sub_verity.")
             await channel.send(f"<@{discord_id}> NetID **{netid}** has automatically been resubscribed.")
+    
+    bot_col.update_one(
+        {"primary_key": "primary_key"},
+        {
+            "$set": {
+                "last_sub_verity": time.strftime("%Y-%m-%d")
+            }
+        }
+    )
 
 
 async def verify_email(ctx):
@@ -369,15 +378,6 @@ async def on_ready():
 
     if today > last_sub_verity:
         await sub_verity()
-
-    bot_col.update_one(
-        {"primary_key": "primary_key"},
-        {
-            "$set": {
-                "last_sub_verity": time.strftime("%Y-%m-%d")
-            }
-        }
-    )
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(sub_verity, 'cron', hour=0, minute=0)
