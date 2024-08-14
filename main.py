@@ -463,7 +463,8 @@ async def subscribe_cmd(ctx):
     presub_netid = []
 
     for netid in netid_list:
-        if subs_col.find_one({'_id': netid, 'is_subscribed': False}):
+        #Set to not so that if netid not in sub_col it moves on 
+        if not subs_col.find_one({'_id': netid, 'is_subscribed': True}):
             continue
         
         sub = subs_col.find_one({'_id': netid})
