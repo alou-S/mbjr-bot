@@ -218,12 +218,11 @@ def enable_netid(netid, cycle=False):
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = lines[i][1:]
 
-            subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
-            print(f"{log_time()} : Triggered wg syncconf")
-
         f.seek(0)
         f.writelines(lines)
         f.truncate()
+    print(f"{log_time()} : Triggered wg syncconf")
+    subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
 
 
 def disable_netid(netid, cycle=False):
@@ -269,12 +268,11 @@ def disable_netid(netid, cycle=False):
             for i in range(target_line + 1, target_line + 4):
                 lines[i] = f'#{lines[i]}'
 
-        subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
-        print(f"{log_time()} : Triggered wg syncconf")
-
         f.seek(0)
         f.writelines(lines)
         f.truncate()
+    print(f"{log_time()} : Triggered wg syncconf")
+    subprocess.run(['sudo', f'{os.environ['HOME']}/scripts/wg-syncconf'], check=True)
 
 
 def get_usage(ipv4, cyc_st, cyc_end):
