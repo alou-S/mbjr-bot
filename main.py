@@ -7,7 +7,6 @@ from discord.ui import Select, View
 import random
 import re
 import asyncio
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pymongo import MongoClient
 from functools import wraps
 from textwrap import dedent
@@ -34,6 +33,7 @@ member_col = db["memberInfo"]
 trans_col = db["transactionInfo"]
 subs_col = db["subscriptionInfo"]
 bot_col = db["botInfo"]
+ready_once = False
 
 def log_time():
     return time.strftime("%b %d %H:%M:%S")
@@ -366,22 +366,30 @@ async def on_member_remove(member):
     member_col.update_one({"_id": member.id}, {"$set": {"in_guild": False}})
 
 
+async def background_loop():
+    print(f"{log_time()} : background_loop has started.")
+    while True:
+        botinfo = bot_col.find_one({"primary_key": "primary_key"})
+        last_sub_verity_str = botinfo.get('last_sub_verity')
+        last_sub_verity =  datetime.strptime(last_sub_verity_str, "%Y-%m-%d").date()
+        today = datetime.now().date()
+
+        if today > last_sub_verity and bot.is_ready():
+            await sub_verity()
+
+        time.sleep(10)
+
+
 @bot.event
 async def on_ready():
+    global ready_once
+    if not ready_once:
+        ready_once = True
+        asyncio.create_task(background_loop())
+        
+    
     print(f"{log_time()} : Logged on as {bot.user}")
-
     await db_member_verity()
-    botinfo = bot_col.find_one({"primary_key": "primary_key"})
-    last_sub_verity_str = botinfo['last_sub_verity']
-    last_sub_verity =  datetime.strptime(last_sub_verity_str, "%Y-%m-%d").date()
-    today = datetime.now().date()
-
-    if today > last_sub_verity:
-        await sub_verity()
-
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(sub_verity, 'cron', hour=0, minute=0)
-    scheduler.start()
 
 
 @bot.command(name='verify')
