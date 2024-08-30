@@ -377,7 +377,7 @@ async def background_loop():
         if today > last_sub_verity and bot.is_ready():
             await sub_verity()
 
-        time.sleep(10)
+        await asyncio.sleep(10)
 
 
 @bot.event
