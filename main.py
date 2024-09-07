@@ -10,6 +10,7 @@ import asyncio
 from pymongo import MongoClient
 from functools import wraps
 from textwrap import dedent
+import aiofiles
 
 import config
 import messages
@@ -530,6 +531,23 @@ async def subscribe_cmd(ctx):
     except ValueError:
         await ctx.send("Content sent was not a integer. Please try again.")
         return
+
+    async with aiofiles.open('/tmp/mu2.ipc', mode='w+') as f:
+        await f.write('1')
+        await f.flush()
+
+        start_time = time.time()
+
+        while time.time() - start_time < 5:
+            await f.seek(0)
+            content = await f.read()
+
+            if content.strip() == '0':
+                break
+
+            await asyncio.sleep(0.1)
+        else:
+            print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
 
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
