@@ -533,21 +533,30 @@ async def subscribe_cmd(ctx):
         return
 
     async with aiofiles.open('/tmp/mu2.ipc', mode='w+') as f:
-        await f.write('1')
+        await f.write('2')
         await f.flush()
 
         start_time = time.time()
+        v2_api_fail = False
 
-        while time.time() - start_time < 5:
+        while True:
+            while time.time() - start_time < 3:
+                await f.seek(0)
+                content = await f.read()
+
+                if content.strip() == '1':
+                    break
+                await asyncio.sleep(0.1)
+            else:
+                v2_api_fail = True
+                print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
+
             await f.seek(0)
             content = await f.read()
 
-            if content.strip() == '0':
-                break
-
+            if content.strip() == '0' or v2_api_fail is True:
+                break 
             await asyncio.sleep(0.1)
-        else:
-            print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
 
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
