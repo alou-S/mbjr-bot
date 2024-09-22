@@ -533,6 +533,7 @@ async def subscribe_cmd(ctx):
         return
 
     async with aiofiles.open('/tmp/mu2.ipc', mode='w+') as f:
+        await f.truncate()
         await f.write('2')
         await f.flush()
 
@@ -555,6 +556,7 @@ async def subscribe_cmd(ctx):
             content = await f.read()
 
             if content.strip() == '0' or v2_api_fail is True:
+                await ctx.send(f"UPI v2 API failed. Summoning my creator <@{config.OWNER_ID}>")
                 break 
             await asyncio.sleep(0.1)
 
