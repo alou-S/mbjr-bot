@@ -538,27 +538,41 @@ async def subscribe_cmd(ctx):
         await f.flush()
 
         start_time = time.time()
-        v2_api_fail = False
+        v2_api_success = None
 
         while True:
-            while time.time() - start_time < 3:
+            while time.time() - start_time < 5 and v2_api_success is not True:
                 await f.seek(0)
                 content = await f.read()
 
                 if content.strip() == '1':
+                    v2_api_success = True
+                    progress_message = await ctx.send("Awaiting transaction info from API")
                     break
                 await asyncio.sleep(0.1)
             else:
-                v2_api_fail = True
-                print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
+                if v2_api_success is not True:
+                    print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
+                    await ctx.send(f"UPI v2 API failed. Summoning my creator <@{config.OWNER_ID}>")
+                    return
 
             await f.seek(0)
             content = await f.read()
 
-            if content.strip() == '0' or v2_api_fail is True:
-                await ctx.send(f"UPI v2 API failed. Summoning my creator <@{config.OWNER_ID}>")
-                break 
-            await asyncio.sleep(0.1)
+            if time.time() - start_time > 15:
+                progress_text = f"This is taking a while please hold on ({int(start_time + 45 - time.time())}s)"
+            else:
+                progress_text = f"Awaiting transaction info from API ({int(start_time + 45 - time.time())}s)"
+            await progress_message.edit(content=progress_text)
+
+            if time.time() - start_time > 45:
+                print(f"{log_time()} : mbjr-upi-v2 API Stalled out")
+                await ctx.send(f"UPI v2 API stalled out. Summoning my creator <@{config.OWNER_ID}>")
+                return
+
+            if content.strip() == '0':
+                break
+            await asyncio.sleep(0.5)
 
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
