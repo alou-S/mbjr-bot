@@ -71,7 +71,6 @@ async def db_member_verity():
                 if "is_verified" not in db_member or db_member["is_verified"] is False:
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
-                    await member.send("All info regarding the VPN can be found here: <https://mbwiki.potat.cc:80/>")
                     await member.send("Send `!verify` to begin verification")
             else:
                 member_col.update_one(
