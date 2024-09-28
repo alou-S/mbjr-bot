@@ -71,6 +71,7 @@ async def db_member_verity():
                 if "is_verified" not in db_member or db_member["is_verified"] is False:
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
+                    await member.send("All info regarding the VPN can be found here: <https://mbwiki.potat.cc:80/>")
                     await member.send("Send `!verify` to begin verification")
             else:
                 member_col.update_one(
@@ -634,7 +635,7 @@ async def subscribe_cmd(ctx):
 
         await ctx.send(f"Transaction Verified\nVPN subscription has been enabled for {netid}.")
         await ctx.send(f"Subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2332800))}")
-        await ctx.send("Steps to setup VPN : <https://gist.github.com/alou-S/43af98571b7b08c0c0ba51e6c54b813b>")
+        await ctx.send("Steps to setup VPN : <https://mbwiki.potat.cc:80/Installation%20and%20Setup>")
         await ctx.send("Send `!get-config` to get the Wireguard configs")
 
 
