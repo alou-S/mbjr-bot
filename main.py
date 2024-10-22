@@ -48,6 +48,8 @@ async def db_member_verity():
     print(f"{log_time()} : DB-Guild verity check triggered")
     guild = bot.guilds[0]
     guild_member_ids = set(member.id for member in guild.members)
+    unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
+    verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
 
     # Update or add members from the guild to the database
     for member in guild.members:
@@ -72,6 +74,10 @@ async def db_member_verity():
                     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
                     await member.send(embed=embed)
                     await member.send("Send `!verify` to begin verification")
+                    await member.add_roles(unverified_role)
+                elif db_member["is_verified"] is True:
+                    await member.add_roles(verified_role)
+
             else:
                 member_col.update_one(
                     {"_id": member.id},
@@ -339,7 +345,7 @@ async def on_member_join(member):
     print(f"{log_time()} : {member.name} with id {member.id} joined")
     guild = member.guild
     unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
-    await member.add_roles(unverified_role)
+    verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
 
     member_col.update_one(
         {"_id": member.id},
@@ -356,9 +362,12 @@ async def on_member_join(member):
     member_doc = member_col.find_one({"_id": member.id})
 
     if "is_verified" not in member_doc or member_doc["is_verified"] is False:
+        await member.add_roles(unverified_role)
         embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
         await member.send(embed=embed)
         await member.send("Send `!verify` to begin verification")
+    elif member_doc["is_verified"] is True:
+        await member.add_roles(verified_role)
 
 
 @bot.event
@@ -432,14 +441,15 @@ async def remove_netid_cmd(ctx):
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
     netid_list.pop(0)
     if len(netid_list) < 1:
-        ctx.send("You have no netid's that can be removed.")
+        await ctx.send("You have no netid's that can be removed.")
+        return
 
     netid = await dropdown_select(ctx, netid_list, prompt="Select which netid to remove from your account")
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
 
-    await   ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
+    await ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
 
     bool_list = ["No, I have changed my mind", "Yes, I still want to continue."]
     bool_reply = await dropdown_select(ctx, bool_list, prompt="Do you still want to continue?")
