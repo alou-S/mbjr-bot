@@ -77,6 +77,10 @@ async def db_member_verity():
                     await member.add_roles(unverified_role)
                 elif db_member["is_verified"] is True:
                     await member.add_roles(verified_role)
+                    channel_name = to_base36(member.id)
+                    channel = discord.utils.get(guild.text_channels, name=channel_name)
+                    overwrite = discord.PermissionOverwrite(read_messages=True)
+                    await channel.set_permissions(member, overwrite=overwrite)
 
             else:
                 member_col.update_one(
@@ -368,6 +372,10 @@ async def on_member_join(member):
         await member.send("Send `!verify` to begin verification")
     elif member_doc["is_verified"] is True:
         await member.add_roles(verified_role)
+        channel_name = to_base36(member.id)
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
+        overwrite = discord.PermissionOverwrite(read_messages=True)
+        await channel.set_permissions(member, overwrite=overwrite)
 
 
 @bot.event
@@ -575,7 +583,7 @@ async def subscribe_cmd(ctx):
                 progress_text = f"Awaiting transaction info from API ({int(start_time + 45 - time.time())}s)"
             await progress_message.edit(content=progress_text)
 
-            if time.time() - start_time > 45:
+            if time.time() - start_time > 90:
                 print(f"{log_time()} : mbjr-upi-v2 API Stalled out")
                 await ctx.send(f"UPI v2 API stalled out. Summoning my creator <@{config.OWNER_ID}>")
                 return
