@@ -578,9 +578,9 @@ async def subscribe_cmd(ctx):
             content = await f.read()
 
             if time.time() - start_time > 15:
-                progress_text = f"This is taking a while please hold on ({int(start_time + 45 - time.time())}s)"
+                progress_text = f"This is taking a while please hold on ({int(start_time + 90 - time.time())}s)"
             else:
-                progress_text = f"Awaiting transaction info from API ({int(start_time + 45 - time.time())}s)"
+                progress_text = f"Awaiting transaction info from API ({int(start_time + 90 - time.time())}s)"
             await progress_message.edit(content=progress_text)
 
             if time.time() - start_time > 90:
