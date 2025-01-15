@@ -771,12 +771,23 @@ async def rotate_keys_cmd(ctx):
 @bot.command(name='enable-netid')
 @admin_channel_command()
 async def enable_netid_cmd(ctx):
+    args = ctx.message.content.split()
     docs = member_col.find( {"netid": {"$exists": True}})
     netid_list = []
+
+    if len(args) > 1:
+         netid = args[1]
+
     for doc in docs:
         netid_list.extend(doc['netid'])
 
-    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to enable")
+    if netid not in netid_list:
+        await ctx.send("You didn't send a valid NetID")
+        return
+
+    if netid is None:
+        netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to enable")
+
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
@@ -791,12 +802,23 @@ async def enable_netid_cmd(ctx):
 @bot.command(name='disable-netid')
 @admin_channel_command()
 async def disable_netid_cmd(ctx):
+    args = ctx.message.content.split()
     docs = member_col.find( {"netid": {"$exists": True}})
     netid_list = []
+
+    if len(args) > 1:
+        netid = args[1]
+
     for doc in docs:
         netid_list.extend(doc['netid'])
 
-    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to disable")
+    if netid not in netid_list:
+        await ctx.send("You didn't send a valid NetID")
+        return
+
+    if netid is None:
+        netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select a NetID to disable")
+
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
