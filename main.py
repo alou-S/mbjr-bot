@@ -447,16 +447,18 @@ async def add_netid_cmd(ctx):
 @sub_channel_command()
 async def remove_netid_cmd(ctx):
     netid_list = member_col.find_one({'_id' : ctx.author.id}).get('netid')
-    netid_list.pop(0)
-    if len(netid_list) < 1:
-        await ctx.send("You have no netid's that can be removed.")
-        return
 
     netid = await dropdown_select(ctx, netid_list, prompt="Select which netid to remove from your account")
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
 
+    if netid == netid_list[0] and len(netid_list) > 1:
+        await ctx.send(f"Primary NetID {netid} cannot be removed when other NetID's are present in this account.")
+        return
+    else:
+        await ctx.send(f"**WARNING: Your primary NetID {netid} is being removed. This will remove your verification and access to this channel**")
+    
     await ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
 
     bool_list = ["No, I have changed my mind", "Yes, I still want to continue."]
@@ -465,6 +467,7 @@ async def remove_netid_cmd(ctx):
     if bool_reply == bool_list[1]:
         try:
             disable_netid(netid, cycle=True)
+            key_rotate(netid)
         except:
             pass
 
@@ -474,7 +477,34 @@ async def remove_netid_cmd(ctx):
         )
 
         print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} removed NetID {netid} from their account.")
-        await ctx.send(f"Netid {netid} has been successfully removed from the account")
+        await ctx.send(f"NetID {netid} has been successfully removed from the account")
+
+        if netid == netid_list[0]:
+            await ctx.send("This channel will be deleted in 5 seconds. Goodbye!")
+            await asyncio.sleep(5)
+
+            guild = bot.guilds[0]
+            unverified_role = discord.utils.get(guild.roles, id=1256347035184140349)
+            verified_role = discord.utils.get(guild.roles, id=1256347101189640305)
+            member = guild.get_member(ctx.author.id)
+
+            await member.remove_roles(verified_role)
+            await member.add_roles(unverified_role)
+
+            member_col.update_one(
+                {"_id": ctx.author.id},
+                {
+                    "$set": {
+                        "is_verified": False
+                    }
+                }
+            )
+
+            channel_name = to_base36(member.id)
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            await channel.delete()
+            print(f"{log_time()} : Channel {channel_name} deleted for {ctx.author.name} {ctx.author.id}.")
+
     else:
         await ctx.send("Action cancelled. Have a nice day")
 
