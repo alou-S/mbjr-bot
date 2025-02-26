@@ -697,11 +697,7 @@ async def get_config_cmd(ctx):
         if sub_doc is not None and sub_doc.get('is_subscribed', False) is True:
             sub_netid.append(netid)
 
-    if not sub_netid:
-        await ctx.send("You have no subscribed NetID's.")
-        return
-
-    netid = await dropdown_select(ctx=ctx, item_list=sub_netid, prompt="Select which config to get")
+    netid = await dropdown_select(ctx=ctx, item_list=netid_list, prompt="Select which config to get")
     if netid is None:
         await ctx.send("You didn't make a selection in time.")
         return
@@ -709,6 +705,8 @@ async def get_config_cmd(ctx):
     print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} requested configs for NetID {netid}.")
     await ctx.send("Here are the configs:", files=send_config(netid))
 
+    if netid not in sub_netid:
+        await ctx.send("WARNING: These configs are currently not subscribed.")
 
 @bot.command(name='get-usage')
 @sub_channel_command()
