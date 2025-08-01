@@ -10,7 +10,7 @@ import asyncio
 from pymongo import MongoClient
 from functools import wraps
 from textwrap import dedent
-import aiofiles
+import aiohttp
 
 import config
 import messages
@@ -35,6 +35,12 @@ trans_col = db["transactionInfo"]
 subs_col = db["subscriptionInfo"]
 bot_col = db["botInfo"]
 ready_once = False
+
+api_url = config.API_URL
+headers = {
+    "X-API-Key": config.API_KEY,
+    "Content-Type": "application/json"
+}
 
 def log_time():
     return time.strftime("%b %d %H:%M:%S")
@@ -165,7 +171,7 @@ async def sub_verity():
             )
             print(f"{log_time()} : NetID {netid} has been auto automatically resubscribed by sub_verity.")
             await channel.send(f"<@{discord_id}> NetID **{netid}** has automatically been resubscribed.")
-    
+
     bot_col.update_one(
         {"primary_key": "primary_key"},
         {
@@ -274,7 +280,7 @@ async def verify_member(ctx):
         else:
             break
 
-        
+
     overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False),
         member: discord.PermissionOverwrite(read_messages=True)}
     channel_name = to_base36(member.id)
@@ -404,8 +410,8 @@ async def on_ready():
     if not ready_once:
         ready_once = True
         asyncio.create_task(background_loop())
-        
-    
+
+
     print(f"{log_time()} : Logged on as {bot.user}")
     await db_member_verity()
 
@@ -458,7 +464,7 @@ async def remove_netid_cmd(ctx):
         return
     else:
         await ctx.send(f"**WARNING: Your primary NetID {netid} is being removed. This will remove your verification and access to this channel**")
-    
+
     await ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
 
     bool_list = ["No, I have changed my mind", "Yes, I still want to continue."]
@@ -523,7 +529,7 @@ async def subscribe_cmd(ctx):
         #Set to not so that if netid not in sub_col it moves on 
         if not subs_col.find_one({'_id': netid, 'is_subscribed': True}):
             continue
-        
+
         sub = subs_col.find_one({'_id': netid})
         today = datetime.now().date()
         sub_cycle = sub['sub_cycle']
@@ -533,7 +539,7 @@ async def subscribe_cmd(ctx):
 
         if days_since_start == 27:
             presub_netid.append(sub['_id'])
-    
+
     unsub_netid = [netid for netid in netid_list if not subs_col.find_one({'_id': netid, 'is_subscribed': True})]
     netid_list = presub_netid + unsub_netid
 
@@ -580,47 +586,45 @@ async def subscribe_cmd(ctx):
         await ctx.send("Content sent was not a integer. Please try again.")
         return
 
-    async with aiofiles.open('/tmp/mu2.ipc', mode='w+') as f:
-        await f.truncate()
-        await f.write('2')
-        await f.flush()
+    async with aiohttp.ClientSession() as session:
+        await session.put(api_url, json={"mu2": 2}, headers=headers)
 
         start_time = time.time()
         v2_api_success = None
 
-        while True:
-            while time.time() - start_time < 5 and v2_api_success is not True:
-                await f.seek(0)
-                content = await f.read()
+        trans_doc = trans_col.find_one({'UTR': utr})
+        if trans_doc is None:
+            while True:
+                while time.time() - start_time < 10 and v2_api_success is not True:
+                    mu2 = (await (await session.get(api_url, headers=headers)).json()).get("mu2")
 
-                if content.strip() == '1':
-                    v2_api_success = True
-                    progress_message = await ctx.send("Awaiting transaction info from API")
-                    break
-                await asyncio.sleep(0.1)
-            else:
-                if v2_api_success is not True:
-                    print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
-                    await ctx.send(f"UPI v2 API failed. Summoning my creator <@{config.OWNER_ID}>")
+                    if mu2 == 1:
+                        v2_api_success = True
+                        progress_message = await ctx.send("Awaiting transaction info from API")
+                        break
+                    await asyncio.sleep(0.1)
+                else:
+                    if v2_api_success is not True:
+                        print(f"{log_time()} : mbjr-upi-v2 API Failed to respond")
+                        await ctx.send(f"UPI v2 API failed. Summoning my creator <@{config.OWNER_ID}>")
+                        return
+
+                mu2 = (await (await session.get(api_url, headers=headers)).json()).get("mu2")
+
+                if time.time() - start_time > 15:
+                    progress_text = f"This is taking a while please hold on ({int(start_time + 90 - time.time())}s)"
+                else:
+                    progress_text = f"Awaiting transaction info from API ({int(start_time + 90 - time.time())}s)"
+                await progress_message.edit(content=progress_text)
+
+                if time.time() - start_time > 90:
+                    print(f"{log_time()} : mbjr-upi-v2 API Stalled out")
+                    await ctx.send(f"UPI v2 API stalled out. Summoning my creator <@{config.OWNER_ID}>")
                     return
 
-            await f.seek(0)
-            content = await f.read()
-
-            if time.time() - start_time > 15:
-                progress_text = f"This is taking a while please hold on ({int(start_time + 90 - time.time())}s)"
-            else:
-                progress_text = f"Awaiting transaction info from API ({int(start_time + 90 - time.time())}s)"
-            await progress_message.edit(content=progress_text)
-
-            if time.time() - start_time > 90:
-                print(f"{log_time()} : mbjr-upi-v2 API Stalled out")
-                await ctx.send(f"UPI v2 API stalled out. Summoning my creator <@{config.OWNER_ID}>")
-                return
-
-            if content.strip() == '0':
-                break
-            await asyncio.sleep(0.5)
+                if mu2 == 0:
+                    break
+                await asyncio.sleep(0.5)
 
     trans_doc = trans_col.find_one({'UTR': utr})
     if trans_doc is None:
@@ -663,14 +667,14 @@ async def subscribe_cmd(ctx):
                     "presub": True,
                 }
             },
-        )   
+        )
 
         await ctx.send(f"Transaction Verified\nYou have presubscribed the next cycle for {netid}.")
         await ctx.send(f"Next subscription will end on {time.strftime("%Y-%m-%d", time.localtime((time.time()) + 2419200))}")
     else:
         subs_col.update_one(
             {"_id": netid},
-            {'$inc': {"sub_cycle": 1}},         
+            {'$inc': {"sub_cycle": 1}},
             upsert=True
         )
         print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {subs_col.find_one({"_id": netid}).get('sub_cycle')}.")
