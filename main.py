@@ -190,7 +190,7 @@ async def verify_email(ctx):
     member_doc = member_col.find_one({"_id": ctx.author.id})
     if member_doc.get("verify_fail_count", 0) > 2:
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
-        await ctx.send("You have failed to verify too many times. Please contact admin.")
+        await ctx.send("You have failed to verify too many times. Please contact admin (<@{config.OWNER_ID}>).")
         return False
 
     await ctx.send("Please enter SRM Net ID")
@@ -218,7 +218,8 @@ async def verify_email(ctx):
 
     print(f"{log_time()} : OTP {otp} for {ctx.author.name} {ctx.author.id} sent to NetID {netid} with response {response.text} ({response.status_code}).")
     await ctx.send(f"An OTP has been sent to the email associated with {netid}. Please send the 6-digit OTP")
-    otp_msg = await text_input(ctx, title="OTP Verification", label="Please enter OTP", min_length=6, max_length=6, timeout=300)
+    await ctx.send("Check your spam/junk folder if the email isn’t in your inbox, and mark it as “not spam” if found.")
+    otp_msg = await text_input(ctx, title="OTP Verification", label="Please enter OTP", min_length=6, max_length=6, timeout=900)
     if otp_msg is None:
         await ctx.send("No response received. The operation has been cancelled.")
         return
@@ -640,12 +641,12 @@ async def subscribe_cmd(ctx):
     if trans_amount < amount:
         print(f"{log_time()} : Underpayment of Rs. {trans_amount} instead of Rs. {amount} with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send(f"You payed less than {amount} rupees. Please try again")
-        await ctx.send("Please contact admin to refund the transaction.")
+        await ctx.send(f"Please contact admin (<@{config.OWNER_ID}>) to refund the transaction.")
         return
     elif trans_amount > amount:
         print(f"{log_time()} : Overpayment of Rs. {trans_amount} instead of Rs. {amount} with UTR {utr} by user {ctx.author.name} {ctx.author.id} for NetID {netid}")
         await ctx.send(f"You payed more than {amount} rupees.")
-        await ctx.send("Please contact admin to refund the excess.")
+        await ctx.send(f"Please contact admin (<@{config.OWNER_ID}>) to refund the excess.")
 
     trans_col.update_one(
         {'UTR': utr},
