@@ -924,17 +924,17 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
             remaining_time = max(0, timeout - elapsed_time)
             await timer_message.edit(content=f"Time remaining: {remaining_time}s")
 
-            if remaining_time <= 0 or view.is_finished():
+            if remaining_time <= 1 or view.is_finished():
                 break
+
+        if remaining_time <= 1:
+            await message.edit(content="Selection timed out.", view=None)
+            await timer_message.delete()
+            return None
 
         if view.is_finished() and selected_item is not None:
             await timer_message.delete()
             break
-
-        if remaining_time <= 0:
-            await message.edit(content="Selection timed out.", view=None)
-            await timer_message.delete()
-            return None
 
         await message.delete()
         await timer_message.delete()
