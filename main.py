@@ -625,6 +625,7 @@ async def subscribe_cmd(ctx):
         return
 
     overage = 0
+    overage_data = 0
     sub_doc = subs_col.find_one({"_id": netid})
 
     if sub_doc is not None:
@@ -637,6 +638,8 @@ async def subscribe_cmd(ctx):
         download_sum = data[0] + data[2]
         upload_sum = data[1] + data[3]
 
+        overage_data = round(((max(download_sum, upload_sum) / (1073741824)) - config.VPN_MAX_DATA))
+
         if max(download_sum, upload_sum) > config.VPN_MAX_DATA * 1073741824:
             overage = round(((max(download_sum, upload_sum) / (config.VPN_MAX_DATA * 1073741824)) * 80)) - 80
 
@@ -644,6 +647,8 @@ async def subscribe_cmd(ctx):
 
     embed = discord.Embed(title="Memo", description=messages.memo, color=discord.Color.blue())
     await ctx.send(embed=embed)
+    if overage > 0:
+        await ctx.send(f"Note: You have used an excess of {overage_data}GB in your current cycle. An additional Rs. {overage} has been added to your subscription cost.")
     await ctx.send(f"Please send Rs. {amount} to {config.UPI_ID}")
     await ctx.send("Please enter UTR (UPI Transaction ID) of your payment:")
 
