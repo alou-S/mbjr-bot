@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import discord
 from discord.ext import commands
 from discord import SelectOption
@@ -166,7 +166,7 @@ async def sub_verity():
             {"_id": netid},
             {
                 '$inc': {"sub_cycle": 1},
-                '$set': {"presub": False}
+                '$set': {"presub": False, "last_notified_percent": 0}
             },
             )
             print(f"{log_time()} : NetID {netid} has been auto automatically resubscribed by sub_verity.")
@@ -179,6 +179,66 @@ async def sub_verity():
                 "last_sub_verity": time.strftime("%Y-%m-%d")
             }
         }
+    )
+
+
+async def usage_notify():
+    subs = subs_col.find({"is_subscribed": True})
+
+    for sub in subs:
+        netid = sub['_id']
+        discord_id = int(member_col.find_one({"netid": netid}, {"_id": 1})['_id'])
+        guild = bot.guilds[0]
+        channel_name = to_base36(discord_id)
+        channel = discord.utils.get(guild.text_channels, name=channel_name)
+
+        sub_cycle = sub['sub_cycle']
+        cycle_start_date_str = sub["cycles"][sub_cycle]["start"]
+        cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
+        cyc_end = (cycle_start_date + timedelta(days=28)).strftime("%Y-%m-%d")
+
+        ipv4 = sub['ipv4_addr']
+        data = get_usage(ipv4, cycle_start_date_str, cyc_end)
+        download_sum = data[0] + data[2]
+        upload_sum = data[1] + data[3]
+
+        usage_percent = (max(download_sum, upload_sum) / (config.VPN_MAX_DATA * 1073741824)) * 100
+        last_notified = sub.get("last_notified_percent", 0)
+        thresholds = [50, 75, 90, 100]
+
+        next_threshold = None
+        for t in sorted(thresholds, reverse=True):
+            if usage_percent >= t and last_notified < t:
+                next_threshold = t
+                break
+
+        if not next_threshold and usage_percent > 100:
+            over = ((usage_percent - 100) // 25) * 25 + 100
+            if over > last_notified:
+                next_threshold = over
+
+        if next_threshold:
+            print(f"{log_time()} : Usage warning {next_threshold}% sent for {netid}")
+
+            await channel.send(
+                f"<@{discord_id}> You've used over **{next_threshold}%** of your data limit for NetID **{netid}**."
+            )
+            await channel.send(
+                "⚠️ Note: Your VPN **won't be disabled** at 100% usage, but overage charges will apply in your next billing cycle."
+            )
+            await channel.send(
+                "📊 Use `!get-usage` to see detailed usage information."
+            )
+
+
+            subs_col.update_one(
+                {"_id": netid},
+                {"$set": {"last_notified_percent": next_threshold}}
+            )
+
+    bot_col.update_one(
+        {"primary_key": "primary_key"},
+        {"$set": {"last_usage_notify": datetime.now(timezone.utc).isoformat()}}
     )
 
 
@@ -395,6 +455,9 @@ async def background_loop():
     print(f"{log_time()} : background_loop has started.")
     while True:
         botinfo = bot_col.find_one({"primary_key": "primary_key"})
+        now = datetime.now(timezone.utc)
+        current_hour = now.replace(minute=0, second=0, microsecond=0)
+
         last_sub_verity_str = botinfo.get('last_sub_verity')
         last_sub_verity =  datetime.strptime(last_sub_verity_str, "%Y-%m-%d").date()
         today = datetime.now().date()
@@ -402,19 +465,28 @@ async def background_loop():
         if today > last_sub_verity and bot.is_ready():
             await sub_verity()
 
+        last_usage_notify_str = botinfo.get("last_usage_notify")
+        last_usage_notify = (
+            datetime.fromisoformat(last_usage_notify_str)
+            if last_usage_notify_str else None
+        )
+
+        if bot.is_ready() and (not last_usage_notify or current_hour > last_usage_notify):
+            await usage_notify()
+
         await asyncio.sleep(10)
 
 
 @bot.event
 async def on_ready():
+    print(f"{log_time()} : Logged on as {bot.user}")
+    await db_member_verity()
+    await usage_notify()
+
     global ready_once
     if not ready_once:
         ready_once = True
         asyncio.create_task(background_loop())
-
-
-    print(f"{log_time()} : Logged on as {bot.user}")
-    await db_member_verity()
 
 
 @bot.command(name='verify')
@@ -676,7 +748,10 @@ async def subscribe_cmd(ctx):
     else:
         subs_col.update_one(
             {"_id": netid},
-            {'$inc': {"sub_cycle": 1}},
+            {
+                '$inc': {"sub_cycle": 1},
+                '$set': {"last_notified_percent": 0}
+            },
             upsert=True
         )
         print(f"{log_time()} : Key sub_cycle for NetID {netid} incremented to {subs_col.find_one({"_id": netid}).get('sub_cycle')}.")
