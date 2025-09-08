@@ -208,7 +208,7 @@ async def usage_notify():
                 next_threshold = t
                 break
 
-        if not next_threshold and usage_percent > 100:
+        if usage_percent > 100:
             over = ((usage_percent - 100) // 25) * 25 + 100
             if over > last_notified:
                 next_threshold = over
