@@ -174,11 +174,7 @@ async def sub_verity():
 
     bot_col.update_one(
         {"primary_key": "primary_key"},
-        {
-            "$set": {
-                "last_sub_verity": time.strftime("%Y-%m-%d")
-            }
-        }
+        {"$set": {"last_sub_verity": datetime.now(timezone.utc).isoformat()}}
     )
 
 
@@ -457,12 +453,15 @@ async def background_loop():
         botinfo = bot_col.find_one({"primary_key": "primary_key"})
         now = datetime.now(timezone.utc)
         current_hour = now.replace(minute=0, second=0, microsecond=0)
+        today = now.date()
 
         last_sub_verity_str = botinfo.get('last_sub_verity')
-        last_sub_verity =  datetime.strptime(last_sub_verity_str, "%Y-%m-%d").date()
-        today = datetime.now().date()
+        last_sub_verity = (
+            datetime.fromisoformat(last_sub_verity_str).date()
+            if last_sub_verity_str else None
+        )
 
-        if today > last_sub_verity and bot.is_ready():
+        if bot.is_ready() and (not last_sub_verity or today > last_sub_verity):
             await sub_verity()
 
         last_usage_notify_str = botinfo.get("last_usage_notify")
