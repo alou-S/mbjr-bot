@@ -138,7 +138,7 @@ async def sub_verity():
         presub = 'presub' in sub and sub['presub']
 
         sub_cycle = sub['sub_cycle']
-        cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
+        cycle_start_date_str = sub["cycles"][sub_cycle]["start"]
         cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
         days_since_start = (today - cycle_start_date).days
 
@@ -534,7 +534,7 @@ async def subscribe_cmd(ctx):
         sub = subs_col.find_one({'_id': netid})
         today = datetime.now().date()
         sub_cycle = sub['sub_cycle']
-        cycle_start_date_str = sub[f"cycle{sub_cycle}_start_date"]
+        cycle_start_date_str = sub["cycles"][sub_cycle]["start"]
         cycle_start_date =  datetime.strptime(cycle_start_date_str, "%Y-%m-%d").date()
         days_since_start = (today - cycle_start_date).days
 
@@ -559,7 +559,7 @@ async def subscribe_cmd(ctx):
     if sub_doc is not None:
         sub_cycle = sub_doc['sub_cycle']
         ipv4 = sub_doc['ipv4_addr']
-        cyc_st = sub_doc[f'cycle{sub_cycle}_start_date']
+        cyc_st = sub_doc["cycles"][sub_cycle]["start"]
         cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
 
         data = get_usage(ipv4, cyc_st, cyc_end)
@@ -660,14 +660,15 @@ async def subscribe_cmd(ctx):
     print(f"{log_time()} : UTR {utr} claimed by user {ctx.author.name} {ctx.author.id} for NetID {netid}.")
 
     if netid in presub_netid:
+        cycles = subs_col.find_one({"_id": netid}).get("cycles", [])
+        while len(cycles) <= sub_cycle:
+            cycles.append({"start": None, "end": None})
+
+        cycles[sub_cycle]["start"] = (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d")
+
         subs_col.update_one(
             {"_id": netid},
-            {
-                "$set": {
-                    f"cycle{sub_cycle+1}_start_date": (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d"),
-                    "presub": True,
-                }
-            },
+            {"$set": {"cycles": cycles, "presub": True}}
         )
 
         await ctx.send(f"Transaction Verified\nYou have presubscribed the next cycle for {netid}.")
@@ -743,7 +744,7 @@ async def get_usage_cmd(ctx):
     cycle = sub_cycle - cycle_list.index(cycle_str)
 
     ipv4 = sub_doc['ipv4_addr']
-    cyc_st = sub_doc[f'cycle{cycle}_start_date']
+    cyc_st = sub_doc["cycles"][cycle]["start"]
     cyc_end = (datetime.strptime(cyc_st, "%Y-%m-%d") + timedelta(days=28)).strftime("%Y-%m-%d")
 
     print(f"{log_time()} : User {ctx.author.name} {ctx.author.id} requested usage for NetID {netid} Cycle {cycle}.")

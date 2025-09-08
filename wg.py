@@ -179,17 +179,16 @@ def enable_netid(netid, cycle=False):
     print(f"{log_time()} : enable_netid called for NetID {netid} with cycle {cycle}.")
     if cycle is True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+        cycles = subs_col.find_one({"_id": netid}).get("cycles", [])
+        while len(cycles) <= cycle:
+            cycles.append({"start": None, "end": None})
 
+        cycles[cycle]["start"] = time.strftime("%Y-%m-%d")
         subs_col.update_one(
             {"_id": netid},
-            {
-                "$set": {
-                    f"cycle{cycle}_start_date": time.strftime("%Y-%m-%d"),
-                    "is_subscribed": True
-                }
-            }
+            {"$set": {"cycles": cycles, "is_subscribed": True}}
         )
-        print(f"{log_time()} : Set is_subscribed to True and cycle{cycle}_start_date to {time.strftime("%Y-%m-%d")}.")
+        print(f"{log_time()} : Set is_subscribed to True and cycles[{cycle}]['start'] to {time.strftime("%Y-%m-%d")}.")
     else:
         subs_col.update_one(
             {"_id": netid},
@@ -229,17 +228,17 @@ def disable_netid(netid, cycle=False):
     print(f"{log_time()} : disable_netid called for NetID {netid} with cycle {cycle}.")
     if cycle is True:
         cycle = subs_col.find_one({"_id": netid}).get('sub_cycle')
+        cycles = subs_col.find_one({"_id": netid}).get("cycles", [])
+        while len(cycles) <= cycle:
+            cycles.append({"start": None, "end": None})
+
+        cycles[cycle]["end"] = time.strftime("%Y-%m-%d")
 
         subs_col.update_one(
             {"_id": netid},
-            {
-                "$set": {
-                    f"cycle{cycle}_end_date": time.strftime("%Y-%m-%d"),
-                    "is_subscribed": False
-                }
-            }
+            {"$set": {"cycles": cycles, "is_subscribed": False}}
         )
-        print(f"{log_time()} : Set is_subscribed to False and cycle{cycle}_end_date to {time.strftime("%Y-%m-%d")}.")
+        print(f"{log_time()} : Set is_subscribed to False and cycles[{cycle}]['end'] to {time.strftime("%Y-%m-%d")}.")
     else:
         subs_col.update_one(
             {"_id": netid},
