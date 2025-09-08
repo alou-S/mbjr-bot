@@ -190,7 +190,7 @@ async def verify_email(ctx):
     member_doc = member_col.find_one({"_id": ctx.author.id})
     if member_doc.get("verify_fail_count", 0) > 2:
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (Too many attempts)")
-        await ctx.send("You have failed to verify too many times. Please contact admin (<@{config.OWNER_ID}>).")
+        await ctx.send(f"You have failed to verify too many times. Please contact admin (<@{config.OWNER_ID}>).")
         return False
 
     await ctx.send("Please enter SRM Net ID")
