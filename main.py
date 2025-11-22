@@ -518,7 +518,7 @@ async def sub_verity_cmd(ctx):
 @sub_channel_command()
 async def add_netid_cmd(ctx):
     if await verify_email(ctx) is True:
-        ctx.send("The above netid has been successfully added to your account.")
+        await ctx.send("The above netid has been successfully added to your account.")
 
 
 @bot.command(name='remove-netid')
@@ -534,7 +534,7 @@ async def remove_netid_cmd(ctx):
     if netid == netid_list[0] and len(netid_list) > 1:
         await ctx.send(f"Primary NetID {netid} cannot be removed when other NetID's are present in this account.")
         return
-    else:
+    elif netid == netid_list[0]:
         await ctx.send(f"**WARNING: Your primary NetID {netid} is being removed. This will remove your verification and access to this channel**")
 
     await ctx.send("**By removing this netid, it's configs will be __disabled__ and any active subscription will be __cancelled__.**")
@@ -737,10 +737,10 @@ async def subscribe_cmd(ctx):
 
     if netid in presub_netid:
         cycles = subs_col.find_one({"_id": netid}).get("cycles", [])
-        while len(cycles) <= sub_cycle:
+        while len(cycles) <= sub_cycle + 1:
             cycles.append({"start": None, "end": None})
 
-        cycles[sub_cycle]["start"] = (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d")
+        cycles[sub_cycle + 1]["start"] = (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d")
 
         subs_col.update_one(
             {"_id": netid},
@@ -976,7 +976,10 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
         if current_page < len(pages) - 1:
             options.append(SelectOption(label="Next Page ▶️", value="!#next", description="Go to the next page"))
 
-        select = Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
+        if len(pages) > 1:
+            select = Select(placeholder=f"{prompt} (Page {current_page + 1}/{len(pages)})", options=options)
+        else:
+            select = Select(placeholder=prompt, options=options)
         view = View(timeout=timeout)
         view.add_item(select)
 
@@ -993,7 +996,10 @@ async def dropdown_select(ctx, item_list, prompt="Select an item", timeout=30):
 
         select.callback = select_callback
 
-        message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
+        if len(pages) > 1:
+            message = await ctx.send(f"{prompt} (Page {current_page + 1}/{len(pages)})", view=view)
+        else:
+            message = await ctx.send(prompt, view=view)
         timer_message = await ctx.send(f"Time remaining: {timeout}s")
 
         start_time = asyncio.get_event_loop().time()
