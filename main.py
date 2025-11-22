@@ -264,10 +264,33 @@ async def verify_email(ctx):
         {'$inc': {"verify_fail_count": 1}}
     )
 
-    if member_col.find_one({"netid": netid}):
+    member_doc = member_col.find_one({"netid": netid})
+    transfer = False
+
+    if member_doc:
+        member_netid_list = member_doc["netid"]
+        sub_doc = subs_col.find_one({"_id": netid})
+
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} used existing NetID {netid} for verification.")
-        await ctx.send("Invalid NetID. Please try again.")
-        return False
+        if sub_doc["is_subscribed"] is True:
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (NetID {netid} already subscribed)")
+            await ctx.send(f"NetID {netid} has an active subscription. Cannot transfer NetID.")
+            await ctx.send(f"Please contact admin (<@{config.OWNER_ID}>) for further information.")
+            return False
+        
+        if netid == member_netid_list[0]:
+            print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} verification rejected. (NetID {netid} is primary to user {member_doc['discord_name']} with id {member_doc['_id']})")
+            await ctx.send(f"NetID {netid} is the primary NetID of another account. Cannot transfer NetID.")
+            await ctx.send(f"Please contact admin (<@{config.OWNER_ID}>) for further information.")
+            return False
+        
+
+        await ctx.send(f"NetID {netid} is currently associated with another account.")
+        bool_list = ["No, I have changed my mind", "Yes, I want to transfer to this account."]
+        bool_reply = await dropdown_select(ctx, bool_list, prompt="Do you want to transfer the NetID to this account?")
+
+        if bool_reply == bool_list[1]:
+            transfer = True
 
     otp = str(random.randint(100000, 999999))
     response = send_otp(otp, netid)
@@ -297,6 +320,27 @@ async def verify_email(ctx):
 
         print(f"{log_time()} : NetID {netid} verified with Member {ctx.author.name} {ctx.author.id}.")
         await ctx.send(f"OTP has been verified for NetID {netid}")
+
+        if transfer:
+            member_col.update_one(
+                {"_id": member_doc["_id"]},
+                {
+                    "$pull": {
+                        "netid": netid
+                    }
+                }
+            )
+            print(f"{log_time()} : NetID {netid} transferred from user {member_doc['discord_name']} {member_doc['_id']} to user {ctx.author.name} {ctx.author.id}.")
+            await ctx.send(f"NetID {netid} has been transferred to your account.")
+
+            
+            channel_name = to_base36(member_doc["_id"])
+            guild = bot.guilds[0]
+            channel = discord.utils.get(guild.text_channels, name=channel_name)
+            discord_id = int(member_doc['_id'])
+            await channel.send(f"<@{discord_id}> NetID {netid} has been removed from this account as it has been transferred to another account.")
+            key_rotate(netid)
+
         return True
     else:
         print(f"{log_time()} : Member {ctx.author.name} {ctx.author.id} with NetID {netid} verification failed. (Invalid OTP)")
